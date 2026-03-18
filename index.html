@@ -357,13 +357,123 @@
     font-size: 12px; color: var(--text);
   }
 
+  /* MOBILE BOTTOM NAV */
+  .mobile-bottom-nav { display: none; }
+
   /* RESPONSIVE */
   @media (max-width: 900px) {
-    .main { grid-template-columns: 1fr; grid-template-rows: 300px auto; }
-    #map { grid-column: 1; grid-row: 1; }
-    .progress-panel { grid-column: 1; grid-row: 2; max-height: 300px; }
-    .bottom-section { grid-column: 1; grid-row: 3; }
+    /* Header: compact */
+    .header { padding: 10px 14px; }
     .header-stats { display: none; }
+    .title-text h1 { font-size: 16px; }
+    .title-text p { font-size: 10px; }
+    .logo { width: 34px; height: 34px; font-size: 16px; }
+
+    /* Tracker bar: compact */
+    .tracker-bar { padding: 7px 12px; gap: 10px; }
+    .btn { padding: 5px 10px; font-size: 11px; }
+
+    /* Main layout: vertical stack, no fixed height */
+    .main {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+    }
+
+    /* Map: collapsible, default 200px on mobile */
+    #map {
+      width: 100%;
+      height: 220px;
+      flex-shrink: 0;
+      border-right: none;
+    }
+
+    /* Progress panel: horizontal scrollable strip */
+    .progress-panel {
+      grid-column: unset; grid-row: unset;
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      max-height: none;
+      height: auto;
+    }
+    .progress-panel > * { flex-shrink: 0; }
+    .panel-title { display: none; }
+    .time-budget { min-width: 160px; margin-bottom: 0; padding: 10px 12px; }
+    .next-cp-card { min-width: 220px; margin-bottom: 0; }
+    .time-remaining .big { font-size: 22px; }
+
+    /* Bottom section: takes all remaining space, scrollable */
+    .bottom-section {
+      grid-column: unset; grid-row: unset;
+      flex: 1;
+      overflow-y: auto;
+      /* Leave room for bottom nav */
+      padding-bottom: 64px;
+    }
+
+    /* Desktop tabs: hidden on mobile */
+    .tabs { display: none; }
+
+    /* Mobile bottom nav: fixed at bottom */
+    .mobile-bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #0d1624;
+      border-top: 1px solid var(--border);
+      z-index: 2000;
+      height: 60px;
+    }
+    .mob-tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 500;
+      border-top: 2px solid transparent;
+      transition: all 0.15s;
+      padding: 4px 2px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mob-tab .mob-icon { font-size: 18px; line-height: 1; }
+    .mob-tab.active { color: var(--accent); border-top-color: var(--accent); background: rgba(0,212,255,0.06); }
+
+    /* Table on mobile: card style instead of wide table */
+    .table-wrap { padding: 8px; }
+    table, thead, tbody, th, td, tr { display: block; }
+    thead { display: none; }
+    tr {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      padding: 12px;
+      position: relative;
+    }
+    tr.row-sleep { border-left: 3px solid var(--sleep); }
+    tr.row-finish { border-left: 3px solid var(--finish); }
+    tr.row-current { border-left: 3px solid var(--accent); }
+    td { padding: 3px 0; border: none; font-size: 13px; }
+    td:first-child { position: absolute; top: 12px; right: 12px; color: var(--muted); font-size: 11px; }
+    td:nth-child(4) { margin-bottom: 4px; }
+
+    /* Grids: single column */
+    .strategy-grid { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    .food-grid { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    .sleep-cards { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    .em-grid { grid-template-columns: 1fr; }
+    .emergency-section { padding: 10px; }
   }
 
   /* SCROLLBAR */
@@ -488,11 +598,11 @@
 
   <div class="bottom-section">
     <div class="tabs">
-      <div class="tab active" onclick="showTab('schedule')">📋 完整時間表</div>
-      <div class="tab" onclick="showTab('sleep')">🛌 住宿計畫</div>
-      <div class="tab" onclick="showTab('strategy')">⚡ 配速策略</div>
-      <div class="tab" onclick="showTab('food')">🍱 補給美食</div>
-      <div class="tab" onclick="showTab('emergency')">🚨 應急方案</div>
+      <div class="tab active" onclick="showTab('schedule', this)">📋 完整時間表</div>
+      <div class="tab" onclick="showTab('sleep', this)">🛌 住宿計畫</div>
+      <div class="tab" onclick="showTab('strategy', this)">⚡ 配速策略</div>
+      <div class="tab" onclick="showTab('food', this)">🍱 補給美食</div>
+      <div class="tab" onclick="showTab('emergency', this)">🚨 應急方案</div>
     </div>
 
     <!-- SCHEDULE TAB -->
@@ -538,6 +648,30 @@
     </div>
   </div>
 </div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-bottom-nav" id="mobileNav">
+  <div class="mob-tab active" onclick="showTab('schedule', this)">
+    <span class="mob-icon">📋</span>
+    <span>時間表</span>
+  </div>
+  <div class="mob-tab" onclick="showTab('sleep', this)">
+    <span class="mob-icon">🛌</span>
+    <span>住宿</span>
+  </div>
+  <div class="mob-tab" onclick="showTab('strategy', this)">
+    <span class="mob-icon">⚡</span>
+    <span>策略</span>
+  </div>
+  <div class="mob-tab" onclick="showTab('food', this)">
+    <span class="mob-icon">🍱</span>
+    <span>美食</span>
+  </div>
+  <div class="mob-tab" onclick="showTab('emergency', this)">
+    <span class="mob-icon">🚨</span>
+    <span>應急</span>
+  </div>
+</nav>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -1077,11 +1211,24 @@ function buildEmergency() {
 buildEmergency();
 
 // ========== TABS ==========
-function showTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function showTab(name, el) {
+  // Hide all content
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
+
+  // Sync desktop tabs
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  const desktopTab = document.querySelector(`.tabs .tab[onclick*="${name}"]`);
+  if (desktopTab) desktopTab.classList.add('active');
+
+  // Sync mobile bottom nav
+  document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+  const mobEl = el || document.querySelector(`.mob-tab[onclick*="${name}"]`);
+  if (mobEl) mobEl.classList.add('active');
+
+  // Scroll content area back to top
+  const bs = document.querySelector('.bottom-section');
+  if (bs) bs.scrollTop = 0;
 }
 </script>
 </body>
