@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台灣1200K 賽事指揮官</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --card2: #1a2236;
+    --border: #1e3a5f;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #39ff14;
+    --warn: #ffd700;
+    --danger: #ff3b3b;
+    --sleep: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --finish: #00ff88;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #0a0e1a 0%, #0d1b3e 50%, #0a0e1a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo {
+    width: 42px; height: 42px;
+    background: conic-gradient(var(--accent), var(--accent2), var(--accent3), var(--accent));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    animation: spin 8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .title-text h1 {
+    font-size: 20px; font-weight: 700;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1.1;
+  }
+  .title-text p { font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+  .header-stats {
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .stat-pill {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-pill .label { color: var(--muted); }
+  .stat-pill .val { color: var(--accent); font-weight: 700; }
+
+  /* LIVE TRACKER BAR */
+  .tracker-bar {
+    background: linear-gradient(90deg, #0d1b3e, #111827);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .tracker-label { font-size: 11px; color: var(--accent); font-family: 'Share Tech Mono', monospace; letter-spacing: 1px; }
+  .gps-status {
+    display: flex; align-items: center; gap: 6px; font-size: 12px;
+  }
+  .gps-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--danger);
+    animation: blink 1s infinite;
+  }
+  .gps-dot.active { background: var(--accent3); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .btn {
+    padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 12px; font-weight: 500; transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { background: #00b8e0; transform: translateY(-1px); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-secondary {
+    background: var(--card2); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    grid-template-rows: 420px auto;
+    gap: 0;
+    height: calc(100vh - 100px);
+  }
+
+  /* MAP */
+  #map {
+    grid-column: 1; grid-row: 1;
+    width: 100%; height: 100%;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* PROGRESS PANEL */
+  .progress-panel {
+    grid-column: 2; grid-row: 1;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .panel-title {
+    font-size: 11px; letter-spacing: 2px; color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  .time-budget {
+    background: var(--card2);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+  .budget-row {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 8px;
+    align-items: center;
+  }
+  .budget-label { color: var(--muted); font-size: 11px; }
+  .budget-val { font-family: 'Share Tech Mono', monospace; font-weight: 700; }
+  .progress-bar-wrap {
+    background: #1a2236; border-radius: 4px; height: 8px; overflow: hidden;
+    margin: 4px 0 8px;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.5s ease;
+  }
+  .time-remaining {
+    text-align: center;
+    margin-top: 6px;
+  }
+  .time-remaining .big {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 28px;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-weight: 700;
+  }
+  .time-remaining .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* NEXT CP */
+  .next-cp-card {
+    background: linear-gradient(135deg, #0d1b3e, #1a2236);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .next-cp-card .cp-name {
+    font-weight: 700; font-size: 15px; color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .next-cp-card .cp-dist { font-size: 12px; color: var(--muted); }
+  .cp-times {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-top: 10px;
+  }
+  .cp-time-box {
+    background: var(--bg); border-radius: 6px; padding: 8px;
+    text-align: center;
+  }
+  .cp-time-box .t-label { font-size: 10px; color: var(--muted); }
+  .cp-time-box .t-val { font-family: 'Share Tech Mono', monospace; font-size: 16px; font-weight: 700; }
+  .cp-time-box.warn .t-val { color: var(--warn); }
+  .cp-time-box.ok .t-val { color: var(--accent3); }
+  .cp-time-box.danger .t-val { color: var(--danger); }
+  .buffer-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 10px; font-size: 12px;
+  }
+  .buffer-good { color: var(--accent3); }
+  .buffer-warn { color: var(--warn); }
+  .buffer-bad { color: var(--danger); }
+
+  /* BOTTOM SECTION */
+  .bottom-section {
+    grid-column: 1 / 3; grid-row: 2;
+    overflow-y: auto;
+    background: var(--bg);
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tab {
+    padding: 12px 20px; font-size: 13px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s; color: var(--muted);
+    font-weight: 500;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; padding: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  th {
+    background: var(--card2); color: var(--accent);
+    padding: 10px 12px; text-align: left;
+    font-size: 11px; letter-spacing: 1px;
+    font-family: 'Share Tech Mono', monospace;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 5;
+  }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(30,58,95,0.4);
+    vertical-align: middle;
+  }
+  tr:hover td { background: rgba(0,212,255,0.04); }
+  .row-sleep td { background: rgba(168,85,247,0.08) !important; border-left: 3px solid var(--sleep); }
+  .row-photo td { background: rgba(255,215,0,0.05) !important; }
+  .row-finish td { background: rgba(0,255,136,0.06) !important; border-left: 3px solid var(--finish); }
+  .row-current td { background: rgba(0,212,255,0.1) !important; border-left: 3px solid var(--accent); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .badge-sleep { background: rgba(168,85,247,0.2); color: var(--sleep); border: 1px solid var(--sleep); }
+  .badge-supply { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid var(--accent); }
+  .badge-photo { background: rgba(255,215,0,0.1); color: var(--warn); border: 1px solid var(--warn); }
+  .badge-finish { background: rgba(0,255,136,0.1); color: var(--finish); border: 1px solid var(--finish); }
+  .badge-start { background: rgba(255,107,53,0.1); color: var(--accent2); border: 1px solid var(--accent2); }
+  .time-mono { font-family: 'Share Tech Mono', monospace; }
+  .buffer-cell { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+  .buffer-ok { color: var(--accent3); }
+  .buffer-warn { color: var(--warn); }
+  .buffer-danger { color: var(--danger); }
+  .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nav-link {
+    display: inline-block; padding: 3px 8px; border-radius: 4px;
+    font-size: 11px; text-decoration: none; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .nav-google { background: rgba(66,133,244,0.15); color: #4285f4; border: 1px solid rgba(66,133,244,0.3); }
+  .nav-google:hover { background: rgba(66,133,244,0.3); }
+  .nav-apple { background: rgba(255,149,0,0.15); color: #ff9500; border: 1px solid rgba(255,149,0,0.3); }
+  .nav-apple:hover { background: rgba(255,149,0,0.3); }
+  .nav-osm { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+  .nav-osm:hover { background: rgba(0,212,255,0.2); }
+
+  /* STRATEGY */
+  .strategy-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; padding: 20px;
+  }
+  .strategy-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+  }
+  .strategy-card h3 {
+    font-size: 13px; color: var(--accent);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .strategy-card ul { list-style: none; }
+  .strategy-card li {
+    font-size: 12px; color: #94a3b8; padding: 5px 0;
+    border-bottom: 1px solid rgba(30,58,95,0.3);
+    display: flex; align-items: flex-start; gap: 6px;
+  }
+  .strategy-card li:last-child { border-bottom: none; }
+  .li-icon { flex-shrink: 0; margin-top: 1px; }
+
+  /* FOOD */
+  .food-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px; padding: 20px;
+  }
+  .food-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+  .food-header {
+    background: linear-gradient(90deg, var(--accent2), #ff9052);
+    padding: 10px 14px;
+    font-weight: 700; font-size: 14px; color: #fff;
+  }
+  .food-body { padding: 12px; }
+  .food-body p { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+  .food-tag { display: inline-block; background: rgba(255,107,53,0.1); color: var(--accent2); font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
+
+  /* SLEEP */
+  .sleep-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; padding: 20px; }
+  .sleep-card {
+    background: var(--card); border: 1px solid var(--sleep);
+    border-radius: 10px; padding: 18px;
+  }
+  .sleep-card h3 { color: var(--sleep); margin-bottom: 12px; font-size: 15px; }
+  .sleep-detail { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(168,85,247,0.15); }
+  .sleep-detail:last-child { border-bottom: none; }
+  .sleep-detail .key { color: var(--muted); }
+  .sleep-detail .val { font-family: 'Share Tech Mono', monospace; color: var(--text); font-weight: 500; }
+
+  /* EMERGENCY */
+  .emergency-section { padding: 20px; }
+  .em-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .em-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+  .em-card h3 { color: var(--warn); font-size: 13px; margin-bottom: 10px; display: flex; gap: 6px; align-items: center; }
+  .em-card p { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+  .em-highlight {
+    background: rgba(255,59,59,0.08); border: 1px solid var(--danger);
+    border-radius: 8px; padding: 10px; margin-top: 8px;
+    font-size: 12px; color: var(--text);
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: 300px auto; }
+    #map { grid-column: 1; grid-row: 1; }
+    .progress-panel { grid-column: 1; grid-row: 2; max-height: 300px; }
+    .bottom-section { grid-column: 1; grid-row: 3; }
+    .header-stats { display: none; }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .section-empty { padding: 20px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <div class="logo">🚴</div>
+    <div class="title-text">
+      <h1>台灣 1200K 賽事指揮官</h1>
+      <p>2026 · 6月6日 06:00 出發 · 目標100小時完賽</p>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat-pill">
+      <span class="label">總距離</span>
+      <span class="val">1,219 km</span>
+    </div>
+    <div class="stat-pill">
+      <span class="label">關門限制</span>
+      <span class="val">105 HR</span>
+    </div>
+    <div class="stat-pill">
+      <span class="label">目標完賽</span>
+      <span class="val">100 HR</span>
+    </div>
+    <div class="stat-pill">
+      <span class="label">均速</span>
+      <span class="val">~20 km/h</span>
+    </div>
+  </div>
+</div>
+
+<div class="tracker-bar">
+  <span class="tracker-label">📡 GPS 追蹤</span>
+  <div class="gps-status">
+    <div class="gps-dot" id="gpsDot"></div>
+    <span id="gpsStatusText" style="font-size:12px;color:var(--muted)">未啟動</span>
+  </div>
+  <button class="btn btn-primary" onclick="startGPS()">啟動定位</button>
+  <button class="btn btn-secondary" onclick="stopGPS()">停止</button>
+  <span id="gpsCoords" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)"></span>
+  <span id="gpsDist" style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--accent3);margin-left:auto;"></span>
+</div>
+
+<div class="main">
+  <div id="map"></div>
+
+  <div class="progress-panel">
+    <div class="panel-title">⏱ 賽程進度面板</div>
+
+    <div class="time-budget">
+      <div class="budget-row">
+        <span class="budget-label">賽程進度</span>
+        <span class="budget-val" id="pctDone">0%</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="mainProgressBar" style="width:0%"></div>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">已騎距離</span>
+        <span class="budget-val" id="riddenKm" style="color:var(--accent3)">0 km</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">剩餘距離</span>
+        <span class="budget-val" id="remainKm" style="color:var(--accent2)">1,219 km</span>
+      </div>
+    </div>
+
+    <div class="time-budget">
+      <div class="panel-title" style="margin-bottom:8px">🕐 時間預算</div>
+      <div class="budget-row">
+        <span class="budget-label">出發時間</span>
+        <span class="budget-val time-mono" style="color:var(--accent2)">06/06 06:00</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">目標完賽</span>
+        <span class="budget-val time-mono" style="color:var(--accent3)">06/10 10:00</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">官方關門</span>
+        <span class="budget-val time-mono" style="color:var(--warn)">06/10 15:00</span>
+      </div>
+      <div class="time-remaining" id="timeRemainingBox">
+        <div class="big" id="timeRemaining">100:00</div>
+        <div class="sub">距目標完賽剩餘時間</div>
+      </div>
+    </div>
+
+    <div class="next-cp-card" id="nextCpCard">
+      <div class="cp-name" id="nextCpName">下一站：起點 花蓮新城</div>
+      <div class="cp-dist" id="nextCpDist">距離：0 km | 預計出發：06/06 06:00</div>
+      <div class="cp-times">
+        <div class="cp-time-box ok">
+          <div class="t-label">預計到達</div>
+          <div class="t-val" id="nextCpETA">--:--</div>
+        </div>
+        <div class="cp-time-box warn">
+          <div class="t-label">關門時間</div>
+          <div class="t-val" id="nextCpCutoff">--:--</div>
+        </div>
+      </div>
+      <div class="buffer-row">
+        <span style="color:var(--muted);font-size:11px">緩衝時間</span>
+        <span class="buffer-good" id="nextCpBuffer">計算中...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-section">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('schedule')">📋 完整時間表</div>
+      <div class="tab" onclick="showTab('sleep')">🛌 住宿計畫</div>
+      <div class="tab" onclick="showTab('strategy')">⚡ 配速策略</div>
+      <div class="tab" onclick="showTab('food')">🍱 補給美食</div>
+      <div class="tab" onclick="showTab('emergency')">🚨 應急方案</div>
+    </div>
+
+    <!-- SCHEDULE TAB -->
+    <div id="tab-schedule" class="tab-content active">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>地點</th>
+              <th>距離 (km)</th>
+              <th>類型</th>
+              <th>關門時間</th>
+              <th>預計到達</th>
+              <th>緩衝</th>
+              <th>停留</th>
+              <th>導航</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SLEEP TAB -->
+    <div id="tab-sleep" class="tab-content">
+      <div class="sleep-cards" id="sleepCards"></div>
+    </div>
+
+    <!-- STRATEGY TAB -->
+    <div id="tab-strategy" class="tab-content">
+      <div class="strategy-grid" id="strategyGrid"></div>
+    </div>
+
+    <!-- FOOD TAB -->
+    <div id="tab-food" class="tab-content">
+      <div class="food-grid" id="foodGrid"></div>
+    </div>
+
+    <!-- EMERGENCY TAB -->
+    <div id="tab-emergency" class="tab-content">
+      <div class="emergency-section" id="emergencySection"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ========== DATA ==========
+const START_TIME = new Date('2026-06-06T06:00:00');
+const TARGET_HOURS = 100;
+const CUTOFF_HOURS = 105;
+const AVG_SPEED = 20; // km/h effective
+
+const CHECKPOINTS = [
+  { id:0, name:'起點 花蓮新城', km:0, type:'start', lat:24.00011, lon:121.62835,
+    note:'出發點，花蓮新城火車站附近',
+    cutoffHr:0, stopMin:0 },
+  { id:1, name:'7-ELEVEN 金玉門市', km:70.7, type:'supply', lat:24.46388, lon:121.79784,
+    note:'第一個補給站，飲料食物補充',
+    cutoffHr:6, stopMin:10 },
+  { id:2, name:'7-ELEVEN 新福隆門市', km:163.5, type:'supply', lat:25.01681, lon:121.94474,
+    note:'福隆，知名福隆便當發源地！',
+    cutoffHr:15, stopMin:30 },
+  { id:3, name:'7-ELEVEn 坪林北宜門市', km:241.1, type:'supply', lat:24.93512, lon:121.70903,
+    note:'坪林，可補充包種茶飲料',
+    cutoffHr:24, stopMin:10 },
+  { id:4, name:'遇見・角板山', km:312.2, type:'sleep', lat:24.81822, lon:121.35205,
+    note:'第一住宿站｜最晚晚上10點到達，隔天03:00出發',
+    cutoffHr:36, stopMin:300, arriveBy:'22:00', depart:'03:00', sleepHr:5,
+    hotel:'遇見・角板山景觀民宿', sleepDay:1 },
+  { id:5, name:'7-ELEVEn 羅浮門市', km:315.6, type:'supply', lat:24.79414, lon:121.36402,
+    note:'角板山附近，睡前或出發後補給',
+    cutoffHr:36.5, stopMin:10 },
+  { id:6, name:'全家 苗栗獅潭店', km:404.4, type:'supply', lat:24.53712, lon:120.91829,
+    note:'苗栗獅潭，午餐補給站',
+    cutoffHr:48, stopMin:30 },
+  { id:7, name:'山嵐謐靜露營區', km:482.2, type:'supply', lat:24.07548, lon:120.87718,
+    note:'景觀點，可稍作休息',
+    cutoffHr:56, stopMin:10 },
+  { id:8, name:'草嶺SPA渡假山莊', km:596.9, type:'sleep', lat:23.58541, lon:120.69647,
+    note:'第二住宿站｜最晚午夜12點到達，隔天03:00出發',
+    cutoffHr:72, stopMin:180, arriveBy:'00:00', depart:'03:00', sleepHr:3,
+    hotel:'草嶺SPA渡假山莊', sleepDay:2 },
+  { id:9, name:'一三一四觀景台', km:626.6, type:'photo', lat:23.55955, lon:120.67905,
+    note:'📸 必拍景點！海拔高點，視野壯闊',
+    cutoffHr:75, stopMin:15 },
+  { id:10, name:'7-ELEVEN 崇原門市', km:706.5, type:'supply', lat:23.26533, lon:120.44368,
+    note:'嘉義地區補給站',
+    cutoffHr:84, stopMin:10 },
+  { id:11, name:'7-ELEVEN 水門門市', km:816.6, type:'supply', lat:22.70530, lon:120.63975,
+    note:'高雄地區，重要補給點',
+    cutoffHr:96, stopMin:30 },
+  { id:12, name:'kikiu綠地露營區', km:906.1, type:'sleep', lat:22.12759, lon:120.77555,
+    note:'第三住宿站｜最晚午夜12點到達，隔天03:00出發',
+    cutoffHr:108, stopMin:180, arriveBy:'00:00', depart:'03:00', sleepHr:3,
+    hotel:'kikiu綠地露營區 / 古長老民宿', sleepDay:3 },
+  { id:13, name:'7-ELEVEN 東河門市', km:1040.5, type:'supply', lat:22.96808, lon:121.30435,
+    note:'台東東河，東海岸補給',
+    cutoffHr:120, stopMin:10 },
+  { id:14, name:'玉長隧道', km:1110.3, type:'photo', lat:23.26832, lon:121.36069,
+    note:'📸 必拍景點！秀姑巒溪出海口，壯麗景觀',
+    cutoffHr:126, stopMin:15 },
+  { id:15, name:'全家 豐濱濱海店', km:1163.4, type:'supply', lat:23.59818, lon:121.52298,
+    note:'最後大補給站，最後衝刺補能',
+    cutoffHr:130, stopMin:15 },
+  { id:16, name:'終點 美侖大飯店', km:1219.2, type:'finish', lat:24.00011, lon:121.62835,
+    note:'🏁 終點！花蓮美侖大飯店',
+    cutoffHr:105, stopMin:0 },
+];
+
+// Calculate ETA for each checkpoint
+function calcETAs() {
+  let runningTime = 0; // hours from start (includes riding + stops)
+  const results = [];
+
+  for (let i = 0; i < CHECKPOINTS.length; i++) {
+    const cp = CHECKPOINTS[i];
+    if (i === 0) {
+      results.push({ ...cp, etaHr: 0, etaDate: new Date(START_TIME) });
+      continue;
+    }
+    const prev = results[i-1];
+    const dist = cp.km - prev.km;
+    const rideHr = dist / AVG_SPEED;
+
+    // Add previous stop time
+    const prevStopHr = (prev.stopMin || 0) / 60;
+    runningTime = (prev.etaHr || 0) + rideHr + prevStopHr;
+
+    // Sleep stops: adjust to depart at specific time
+    if (cp.type === 'sleep') {
+      // find when we arrive and set depart time
+    }
+
+    const etaDate = new Date(START_TIME.getTime() + runningTime * 3600000);
+    results.push({ ...cp, etaHr: runningTime, etaDate });
+  }
+  return results;
+}
+
+const CPS = calcETAs();
+
+// ========== UTILS ==========
+function fmtDate(d) {
+  const mo = d.getMonth()+1, day = d.getDate();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${mo}/${day} ${hh}:${mm}`;
+}
+function fmtHr(hr) {
+  const h = Math.floor(hr), m = Math.round((hr - h) * 60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function cutoffDate(hr) {
+  return new Date(START_TIME.getTime() + hr * 3600000);
+}
+function bufferHr(etaHr, cutoffHr) {
+  return cutoffHr - etaHr;
+}
+function bufferStr(buf) {
+  if (buf < 0) return `<span class="buffer-danger">⚠️ 超時 ${Math.abs(buf).toFixed(1)}h</span>`;
+  if (buf < 2) return `<span class="buffer-warn">⚡ +${buf.toFixed(1)}h</span>`;
+  return `<span class="buffer-ok">✓ +${buf.toFixed(1)}h</span>`;
+}
+function googleMapsUrl(lat, lon, name) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}@${lat},${lon}`;
+}
+function appleMapsUrl(lat, lon, name) {
+  return `https://maps.apple.com/?q=${encodeURIComponent(name)}&ll=${lat},${lon}`;
+}
+function osmUrl(lat, lon) {
+  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=16`;
+}
+
+// ========== MAP ==========
+const map = L.map('map', {
+  center: [23.5, 121.0],
+  zoom: 8,
+  zoomControl: true
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© CartoDB',
+  maxZoom: 19
+}).addTo(map);
+
+// Route
+const ROUTE = [[121.6279,23.99986],[121.62934,24.00318],[121.63396,24.01077],[121.6385,24.01711],[121.63347,24.02105],[121.62955,24.02606],[121.62689,24.02991],[121.62654,24.03195],[121.6263,24.0345],[121.62396,24.0381],[121.62132,24.03973],[121.62009,24.04098],[121.61757,24.04652],[121.61647,24.05067],[121.61466,24.05738],[121.61439,24.0604],[121.6132,24.06359],[121.61281,24.06699],[121.61284,24.07299],[121.61293,24.07545],[121.61437,24.08215],[121.61595,24.08712],[121.61852,24.09195],[121.61787,24.09322],[121.61757,24.09415],[121.61742,24.09512],[121.61592,24.10147],[121.61877,24.1059],[121.62995,24.11162],[121.63933,24.11729],[121.64701,24.12218],[121.64815,24.12822],[121.64265,24.13237],[121.64364,24.13639],[121.64396,24.14185],[121.64421,24.14634],[121.64435,24.14917],[121.64757,24.15023],[121.64882,24.15201],[121.64987,24.15607],[121.65288,24.1647],[121.65493,24.17195],[121.65599,24.17564],[121.65733,24.18016],[121.65755,24.18411],[121.65911,24.18637],[121.66032,24.18906],[121.66005,24.19093],[121.6614,24.19251],[121.66198,24.19442],[121.66301,24.19866],[121.6654,24.20456],[121.667,24.2073],[121.66861,24.20742],[121.67013,24.20757],[121.67171,24.20793],[121.67575,24.20927],[121.67857,24.21061],[121.67984,24.21153],[121.6844,24.21379],[121.68882,24.21864],[121.69061,24.22241],[121.69777,24.22684],[121.70591,24.23505],[121.71089,24.24048],[121.71464,24.24633],[121.72095,24.24494],[121.73262,24.25119],[121.73696,24.2558],[121.74031,24.26675],[121.74478,24.2779],[121.74914,24.28568],[121.75272,24.29729],[121.74828,24.30784],[121.74235,24.31839],[121.74491,24.32581],[121.7523,24.32148],[121.76096,24.32185],[121.76637,24.33068],[121.77066,24.34183],[121.77166,24.34565],[121.77329,24.34842],[121.77561,24.35238],[121.77852,24.35859],[121.78019,24.36481],[121.77728,24.36723],[121.77623,24.36845],[121.77917,24.36952],[121.78241,24.37207],[121.7844,24.3747],[121.78434,24.38019],[121.78462,24.38685],[121.78356,24.3913],[121.78455,24.39479],[121.78669,24.39862],[121.78679,24.4039],[121.78736,24.408],[121.79037,24.41399],[121.78986,24.42066],[121.79053,24.42392],[121.78943,24.42716],[121.78759,24.43222],[121.78382,24.43628],[121.78344,24.43862],[121.78296,24.44419],[121.78128,24.4491],[121.77784,24.45392],[121.78406,24.4604],[121.79193,24.46203],[121.79944,24.46538],[121.80739,24.46854],[121.81093,24.46924],[121.81574,24.4749],[121.81961,24.47296],[121.81865,24.47038],[121.82273,24.47443],[121.82182,24.478],[121.82346,24.48054],[121.82668,24.48622],[121.83235,24.4928],[121.8353,24.49558],[121.83581,24.49884],[121.83637,24.50305],[121.8339,24.50377],[121.83263,24.50806],[121.83227,24.51105],[121.83088,24.51384],[121.83264,24.51992],[121.83686,24.52111],[121.83901,24.52473],[121.84141,24.52166],[121.84438,24.52466],[121.84631,24.52377],[121.8497,24.52485],[121.85177,24.52772],[121.85439,24.52931],[121.85788,24.53042],[121.86196,24.53323],[121.86515,24.53122],[121.86832,24.53457],[121.86614,24.53901],[121.86682,24.5428],[121.86693,24.54807],[121.86534,24.55504],[121.8655,24.55851],[121.8666,24.56172],[121.86695,24.56428],[121.8659,24.56866],[121.86587,24.57336],[121.86491,24.57644],[121.86079,24.58124],[121.8607,24.58505],[121.8608,24.58677],[121.85852,24.58941],[121.8574,24.59436],[121.85429,24.59618],[121.8558,24.60873],[121.84518,24.61809],[121.83309,24.62717],[121.83313,24.63666],[121.8332,24.64928],[121.82877,24.66304],[121.82734,24.67709],[121.82493,24.69215],[121.8203,24.70481],[121.82066,24.7201],[121.82474,24.72738],[121.82267,24.73678],[121.81958,24.7468],[121.81804,24.75768],[121.81697,24.76628],[121.8167,24.77233],[121.81699,24.7814],[121.81742,24.78841],[121.81804,24.79486],[121.81924,24.80323],[121.82003,24.81149],[121.82118,24.81718],[121.82097,24.8214],[121.82071,24.82396],[121.8219,24.82913],[121.82277,24.83352],[121.82423,24.83725],[121.82371,24.84091],[121.82313,24.84713],[121.82525,24.8485],[121.82852,24.85497],[121.83138,24.86219],[121.8299,24.86616],[121.83457,24.87091],[121.84,24.87689],[121.84329,24.88081],[121.84783,24.88538],[121.84926,24.88916],[121.85163,24.89185],[121.85571,24.89302],[121.85996,24.89626],[121.86262,24.89817],[121.86343,24.90053],[121.86378,24.90252],[121.86622,24.90368],[121.86876,24.90448],[121.87391,24.9085],[121.87704,24.91204],[121.88224,24.91671],[121.88362,24.92143],[121.8843,24.92425],[121.88605,24.92676],[121.88524,24.92982],[121.88446,24.93312],[121.88662,24.93582],[121.89226,24.93959],[121.8966,24.94206],[121.89995,24.94146],[121.90232,24.94269],[121.90326,24.94584],[121.90782,24.94957],[121.9136,24.95262],[121.91672,24.95434],[121.9185,24.9592],[121.92016,24.96141],[121.92003,24.96342],[121.92396,24.96857],[121.92829,24.97138],[121.93395,24.97385],[121.93693,24.97514],[121.9424,24.97692],[121.94857,24.97992],[121.95021,24.98091],[121.95302,24.98223],[121.95528,24.98401],[121.95858,24.98381],[121.96276,24.98362],[121.96586,24.98439],[121.9688,24.98642],[121.9721,24.98712],[121.97416,24.98895],[121.97611,24.99154],[121.97845,24.99287],[121.98103,24.99291],[121.98289,24.99327],[121.98634,24.99701],[121.99025,24.99928],[121.99378,25.00102],[121.99595,25.0036],[121.99835,25.00399],[122.00118,25.00409],[122.00257,25.00509],[122.0035,25.00896],[122.00233,25.01133],[121.99894,25.01432],[121.99783,25.01674],[121.99596,25.01621],[121.99225,25.01166],[121.98947,25.01024],[121.98819,25.01275],[121.98833,25.01649],[121.98778,25.01935],[121.98515,25.02102],[121.98185,25.02235],[121.978,25.02382],[121.97268,25.02456],[121.9693,25.02361],[121.96546,25.02181],[121.96156,25.02043],[121.95832,25.01983],[121.95243,25.02064],[121.95016,25.01821],[121.94702,25.01702],[121.94074,25.01766],[121.93741,25.01831],[121.93469,25.01839],[121.93227,25.01946],[121.92866,25.02216],[121.92724,25.02395],[121.92689,25.02713],[121.92908,25.03123],[121.92743,25.03819],[121.92562,25.04522],[121.92303,25.04871],[121.92377,25.05326],[121.92515,25.0581],[121.92619,25.05962],[121.92964,25.06195],[121.92829,25.06356],[121.92531,25.06597],[121.92402,25.06778],[121.92264,25.0704],[121.92065,25.07207],[121.91873,25.07341],[121.91641,25.07434],[121.91474,25.07574],[121.91483,25.07798],[121.91396,25.08297],[121.91229,25.08543],[121.91217,25.08862],[121.91341,25.09091],[121.91487,25.09289],[121.9164,25.09524],[121.9165,25.0967],[121.91705,25.09898],[121.91808,25.10239],[121.91977,25.10452],[121.91958,25.10772],[121.92012,25.11026],[121.91769,25.10952],[121.91618,25.10864],[121.91535,25.11097],[121.91193,25.11308],[121.9141,25.11597],[121.91623,25.11755],[121.91802,25.11959],[121.91621,25.12227],[121.91453,25.12401],[121.91218,25.12332],[121.90991,25.12202],[121.90769,25.12144],[121.90555,25.12114],[121.90357,25.12219],[121.90112,25.12042],[121.89828,25.11917],[121.89509,25.11994],[121.89295,25.11946],[121.88952,25.11972],[121.88736,25.12101],[121.88255,25.12297],[121.87695,25.12273],[121.87179,25.12342],[121.86924,25.12312],[121.86751,25.12205],[121.86386,25.1225],[121.85746,25.11695],[121.85646,25.11561],[121.85494,25.11535],[121.85226,25.11481],[121.85054,25.11015],[121.84994,25.10936],[121.84717,25.10545],[121.84765,25.1036],[121.85076,25.10339],[121.85239,25.10411],[121.8525,25.10267],[121.85343,25.10127],[121.8531,25.10037],[121.85445,25.10083],[121.8539,25.10012],[121.85224,25.09963],[121.85155,25.1014],[121.84929,25.10151],[121.84851,25.10069],[121.84836,25.09883],[121.84931,25.09893],[121.8503,25.09811],[121.851,25.09673],[121.851,25.09603],[121.85129,25.09548],[121.84997,25.09485],[121.84917,25.09385],[121.84977,25.09272],[121.84982,25.09176],[121.8491,25.09147],[121.84904,25.09073],[121.84852,25.08994],[121.84894,25.08927],[121.84741,25.0891],[121.84587,25.08693],[121.84559,25.08604],[121.84538,25.08467],[121.84544,25.08375],[121.84453,25.08387],[121.84448,25.08289],[121.84364,25.08225],[121.84263,25.08106],[121.84218,25.08034],[121.84198,25.07907],[121.84293,25.08016],[121.84384,25.08091],[121.84498,25.0809],[121.84363,25.07995],[121.84295,25.07941],[121.84302,25.0785],[121.84374,25.07734],[121.84337,25.07692],[121.84314,25.07582],[121.84245,25.07527],[121.84219,25.07476],[121.84235,25.07414],[121.84361,25.07419],[121.84489,25.07428],[121.84561,25.07432],[121.84646,25.07344],[121.84582,25.07276],[121.84629,25.07066],[121.84686,25.06959],[121.84553,25.07002],[121.84526,25.06913],[121.84572,25.06858],[121.84661,25.06735],[121.84744,25.06729],[121.84909,25.06701],[121.84883,25.06625],[121.84952,25.0662],[121.84905,25.065],[121.84825,25.06449],[121.84929,25.06356],[121.85029,25.06189],[121.85114,25.06152],[121.84995,25.05969],[121.85026,25.05792],[121.85075,25.05635],[121.85385,25.05569],[121.85652,25.05324],[121.85853,25.05276],[121.86009,25.0509],[121.86149,25.04774],[121.86306,25.04555],[121.86494,25.04378],[121.86615,25.04144],[121.86534,25.03967],[121.86007,25.03824],[121.85404,25.03657],[121.85076,25.03556],[121.84398,25.03491],[121.83849,25.03313],[121.83477,25.03049],[121.82746,25.02748],[121.82015,25.02429],[121.81448,25.02136],[121.8103,25.021],[121.80679,25.01944],[121.804,25.01898],[121.80196,25.0172],[121.79927,25.01666],[121.79665,25.01774],[121.79419,25.01913],[121.78511,25.0232],[121.78064,25.02569],[121.7806,25.02804],[121.77886,25.03108],[121.77916,25.03388],[121.77922,25.03722],[121.77978,25.03908],[121.77763,25.04092],[121.776,25.04021],[121.77472,25.03831],[121.77051,25.03551],[121.76512,25.03214],[121.76217,25.03303],[121.75986,25.03089],[121.75549,25.0291],[121.75442,25.02803],[121.75157,25.02654],[121.74908,25.02597],[121.74997,25.0252],[121.75042,25.01782],[121.75037,25.01684],[121.75264,25.01628],[121.753,25.01579],[121.75081,25.01353],[121.75081,25.01227],[121.75162,25.01167],[121.75146,25.00865],[121.75205,25.00698],[121.7511,25.00603],[121.74795,25.00546],[121.74683,25.00516],[121.74563,25.00305],[121.74386,25.00277],[121.74311,25.00245],[121.74328,25.00151],[121.74231,25.00067],[121.74071,24.99943],[121.73953,24.99833],[121.73869,24.99753],[121.73836,24.99659],[121.7372,24.99426],[121.73642,24.99267],[121.73593,24.9912],[121.73569,24.99026],[121.73551,24.988],[121.73382,24.98334],[121.73358,24.98269],[121.73442,24.98291],[121.73281,24.98127],[121.73255,24.98017],[121.73175,24.97953],[121.73059,24.97911],[121.72994,24.97868],[121.72928,24.97804],[121.7279,24.97793],[121.7267,24.97763],[121.7256,24.97831],[121.7241,24.97854],[121.72367,24.97737],[121.72324,24.97629],[121.72422,24.9764],[121.72465,24.97596],[121.72521,24.97654],[121.72529,24.97565],[121.72566,24.97496],[121.72699,24.97471],[121.72631,24.9741],[121.72646,24.97366],[121.72479,24.9728],[121.72438,24.97102],[121.72409,24.9704],[121.72443,24.96963],[121.7252,24.96912],[121.72594,24.9683],[121.72766,24.96575],[121.72824,24.96519],[121.72881,24.96427],[121.7289,24.96351],[121.72812,24.96338],[121.7275,24.96288],[121.72926,24.9627],[121.73012,24.96223],[121.73078,24.9624],[121.73168,24.96171],[121.73288,24.96127],[121.73406,24.96089],[121.73507,24.96111],[121.73608,24.96035],[121.73675,24.95987],[121.73613,24.95887],[121.73541,24.9587],[121.73631,24.95833],[121.73465,24.95766],[121.73748,24.95328],[121.73757,24.95257],[121.73732,24.95178],[121.7367,24.95179],[121.73592,24.95155],[121.73521,24.95169],[121.73362,24.95162],[121.73232,24.95066],[121.73174,24.94932],[121.73102,24.94882],[121.73005,24.94839],[121.7283,24.94821],[121.7274,24.94785],[121.7251,24.9472],[121.72395,24.947],[121.72195,24.94639],[121.72106,24.94541],[121.71956,24.94511],[121.71836,24.94468],[121.71696,24.94359],[121.71364,24.94359],[121.71206,24.94194],[121.71166,24.94108],[121.71174,24.93903],[121.7119,24.93739],[121.71128,24.93511],[121.70737,24.93455],[121.70346,24.93606],[121.69942,24.93627],[121.69631,24.93475],[121.69465,24.93573],[121.69292,24.93677],[121.6909,24.9367],[121.68929,24.93573],[121.68699,24.93479],[121.68502,24.93582],[121.6832,24.93739],[121.68388,24.93935],[121.68476,24.94066],[121.68272,24.94085],[121.68181,24.94133],[121.68113,24.93992],[121.68041,24.93904],[121.679,24.9382],[121.67783,24.93778],[121.67693,24.93863],[121.67623,24.93969],[121.6756,24.94112],[121.6743,24.94152],[121.67338,24.94136],[121.67164,24.94128],[121.67074,24.94277],[121.67101,24.94426],[121.66906,24.94677],[121.6683,24.94606],[121.66919,24.94532],[121.66856,24.94466],[121.66893,24.94378],[121.66746,24.94376],[121.66733,24.943],[121.66626,24.94229],[121.66529,24.94465],[121.66477,24.94775],[121.66445,24.94905],[121.66348,24.95007],[121.66156,24.94866],[121.65913,24.94916],[121.65804,24.94771],[121.65904,24.94641],[121.6588,24.94501],[121.65744,24.94514],[121.65641,24.94476],[121.65402,24.9455],[121.65261,24.94706],[121.65108,24.94698],[121.65006,24.94632],[121.65011,24.94472],[121.64895,24.94512],[121.64863,24.94819],[121.64557,24.95212],[121.64286,24.95252],[121.64054,24.95135],[121.63854,24.9533],[121.63623,24.95414],[121.63493,24.95338],[121.63177,24.95178],[121.63094,24.953],[121.62798,24.95462],[121.62402,24.95523],[121.62282,24.95788],[121.62132,24.95814],[121.62068,24.95913],[121.61808,24.95971],[121.61603,24.95923],[121.61323,24.9592],[121.60908,24.95681],[121.60813,24.95805],[121.60289,24.95541],[121.5975,24.95276],[121.59444,24.95246],[121.5895,24.95213],[121.58615,24.9515],[121.58502,24.95011],[121.57878,24.95098],[121.57518,24.95147],[121.57157,24.95062],[121.56833,24.9509],[121.56758,24.95358],[121.57074,24.95631],[121.56648,24.95424],[121.56076,24.95433],[121.5567,24.95382],[121.55236,24.95325],[121.54979,24.95166],[121.54434,24.95322],[121.54065,24.95313],[121.5388,24.95558],[121.53803,24.95895],[121.53706,24.96146],[121.53287,24.96042],[121.53081,24.96106],[121.52762,24.96224],[121.52163,24.96383],[121.51932,24.96065],[121.5181,24.95772],[121.51316,24.95736],[121.50964,24.95506],[121.50274,24.95446],[121.49895,24.95365],[121.49411,24.954],[121.49099,24.95174],[121.48642,24.95179],[121.48343,24.95015],[121.47999,24.94753],[121.47916,24.94607],[121.47706,24.94476],[121.47393,24.94202],[121.46973,24.93941],[121.46566,24.93944],[121.46289,24.93713],[121.46034,24.93549],[121.45378,24.93166],[121.45058,24.92943],[121.44607,24.92755],[121.44231,24.92627],[121.44014,24.92628],[121.43838,24.92633],[121.43432,24.92429],[121.43157,24.92392],[121.42765,24.92359],[121.42674,24.92454],[121.42693,24.9263],[121.42538,24.92775],[121.4234,24.92851],[121.4216,24.93006],[121.41895,24.92971],[121.41579,24.92769],[121.41037,24.9304],[121.40553,24.93299],[121.39909,24.93531],[121.39395,24.93594],[121.38603,24.93274],[121.38022,24.93027],[121.37643,24.93109],[121.37284,24.92845],[121.37053,24.92163],[121.3679,24.91998],[121.36608,24.91573],[121.36601,24.90984],[121.36734,24.90439],[121.36844,24.9015],[121.36745,24.90012],[121.37013,24.8986],[121.3705,24.89722],[121.37296,24.89323],[121.37445,24.89141],[121.37604,24.88676],[121.37756,24.88387],[121.37894,24.88206],[121.38073,24.87689],[121.37897,24.87424],[121.37741,24.87222],[121.37613,24.87174],[121.37406,24.87014],[121.37244,24.86797],[121.37037,24.86636],[121.36888,24.86571],[121.36724,24.86469],[121.36402,24.86169],[121.3618,24.86079],[121.3601,24.85951],[121.3593,24.85744],[121.35669,24.85381],[121.35433,24.85351],[121.35131,24.8504],[121.34931,24.84982],[121.34672,24.85138],[121.34613,24.85278],[121.34457,24.85317],[121.34397,24.85408],[121.34442,24.85102],[121.34312,24.85172],[121.34056,24.85136],[121.33978,24.85115],[121.33794,24.85086],[121.33633,24.85004],[121.33502,24.84908],[121.33455,24.8472],[121.3336,24.84629],[121.33294,24.84334],[121.33396,24.84071],[121.33415,24.8392],[121.33429,24.83794],[121.33184,24.83618],[121.33054,24.83494],[121.33065,24.8322],[121.33221,24.82945],[121.33429,24.83022],[121.33605,24.82949],[121.33604,24.82845],[121.33735,24.82654],[121.33854,24.82695],[121.33999,24.82704],[121.3418,24.82616],[121.34259,24.82344],[121.3442,24.82219],[121.34464,24.81988],[121.34664,24.8211],[121.3468,24.82233],[121.34793,24.82213],[121.34921,24.82302],[121.35009,24.82356],[121.35243,24.82423],[121.35353,24.8249],[121.35486,24.82448],[121.35369,24.8214],[121.35346,24.81928],[121.35375,24.81787],[121.35248,24.81711],[121.35376,24.81254],[121.35267,24.81134],[121.35176,24.81021],[121.35184,24.80892],[121.35439,24.80775],[121.35539,24.80758],[121.35845,24.80784],[121.3594,24.80775],[121.36019,24.80738],[121.36138,24.80781],[121.36293,24.80772],[121.36426,24.80615],[121.36571,24.80507],[121.36841,24.80591],[121.36882,24.80496],[121.36769,24.80454],[121.36703,24.80024],[121.36569,24.7992],[121.36441,24.79387],[121.36617,24.79172],[121.36489,24.79136],[121.36202,24.79354],[121.36045,24.79428],[121.35804,24.79406],[121.35886,24.79561],[121.35883,24.80039],[121.35787,24.80067],[121.35758,24.79979],[121.35387,24.80154],[121.35295,24.79893],[121.35222,24.80006],[121.35121,24.80229],[121.34967,24.80343],[121.34624,24.80326],[121.34401,24.80202],[121.34395,24.79976],[121.34423,24.7978],[121.34325,24.79759],[121.3426,24.7969],[121.34217,24.79534],[121.34036,24.79691],[121.34041,24.79552],[121.33969,24.79531],[121.339,24.79388],[121.33938,24.79271],[121.33937,24.79093],[121.33922,24.78978],[121.33892,24.78861],[121.33753,24.79005],[121.33583,24.78945],[121.33274,24.79096],[121.33553,24.79165],[121.33504,24.79474],[121.33546,24.79586],[121.33444,24.79708],[121.33234,24.79731],[121.32849,24.79803],[121.32735,24.79876],[121.3257,24.79915],[121.32404,24.79816],[121.32219,24.79831],[121.32079,24.79797],[121.3195,24.79833],[121.31768,24.79796],[121.31707,24.79847],[121.31654,24.79748],[121.31453,24.7982],[121.31332,24.79716],[121.31284,24.79647],[121.31204,24.79673],[121.31201,24.79813],[121.31094,24.7988],[121.31007,24.79955],[121.30818,24.8001],[121.30538,24.80063],[121.30494,24.79955],[121.30367,24.80068],[121.30278,24.79843],[121.30245,24.79693],[121.30168,24.79763],[121.30136,24.79892],[121.30115,24.80032],[121.29836,24.80198],[121.29473,24.80403],[121.29452,24.80191],[121.29401,24.80223],[121.29285,24.80263],[121.29163,24.80187],[121.29033,24.80158],[121.28947,24.80027],[121.28949,24.7993],[121.28848,24.79905],[121.28703,24.79888],[121.28584,24.79904],[121.28574,24.79755],[121.28487,24.79773],[121.28424,24.79903],[121.28355,24.79694],[121.28263,24.79614],[121.2812,24.79597],[121.28027,24.79507],[121.27938,24.79535],[121.27768,24.79285],[121.27767,24.79146],[121.27765,24.78951],[121.27854,24.78743],[121.27584,24.78391],[121.2743,24.78366],[121.27222,24.7826],[121.27101,24.78156],[121.27058,24.77988],[121.26918,24.78013],[121.26772,24.78074],[121.26714,24.78024],[121.26563,24.78007],[121.26405,24.77872],[121.26487,24.778],[121.26686,24.77753],[121.26411,24.77484],[121.26306,24.77471],[121.26332,24.77617],[121.26294,24.77724],[121.25927,24.77891],[121.2576,24.77992],[121.25631,24.78102],[121.25472,24.77968],[121.25103,24.77982],[121.24894,24.77959],[121.24507,24.77793],[121.24278,24.77757],[121.24074,24.77695],[121.23712,24.77497],[121.23526,24.77313],[121.22877,24.77113],[121.22672,24.7702],[121.22458,24.76843],[121.22204,24.76819],[121.2182,24.76735],[121.21658,24.76814],[121.21453,24.77059],[121.21237,24.77235],[121.21146,24.77329],[121.2109,24.77384],[121.20782,24.77517],[121.20613,24.77654],[121.20258,24.77756],[121.20015,24.77645],[121.19824,24.77455],[121.19543,24.77359],[121.19424,24.77048],[121.19316,24.76994],[121.18942,24.77006],[121.18566,24.77036],[121.17995,24.77559],[121.17875,24.78049],[121.177,24.77876],[121.17632,24.77641],[121.17424,24.77173],[121.17305,24.7649],[121.17193,24.76231],[121.17163,24.75875],[121.17258,24.75714],[121.17141,24.74971],[121.16807,24.7476],[121.16351,24.74436],[121.16239,24.74188],[121.16272,24.73726],[121.16047,24.73468],[121.15977,24.7319],[121.15817,24.72788],[121.15661,24.7256],[121.15777,24.72174],[121.15623,24.7189],[121.15247,24.71721],[121.14679,24.71784],[121.1451,24.71729],[121.14295,24.71703],[121.13567,24.72222],[121.1314,24.72534],[121.12702,24.72674],[121.12453,24.72354],[121.12158,24.71954],[121.10232,24.72291],[121.09583,24.72202],[121.08744,24.72684],[121.0805,24.72461],[121.07513,24.7217],[121.0742,24.7191],[121.07035,24.71328],[121.06897,24.70972],[121.06598,24.70792],[121.06193,24.70552],[121.05894,24.70264],[121.05496,24.70406],[121.05048,24.70366],[121.04632,24.70303],[121.04147,24.70183],[121.03611,24.69912],[121.03298,24.69685],[121.03194,24.693],[121.02994,24.6897],[121.02639,24.68769],[121.01998,24.68753],[121.01696,24.68845],[121.01246,24.69149],[121.00833,24.69699],[121.0051,24.6989],[121.0022,24.69798],[121.00008,24.69869],[120.99809,24.70012],[120.99538,24.70078],[120.99228,24.69971],[120.98978,24.70072],[120.98596,24.69747],[120.98128,24.69542],[120.97609,24.6935],[120.97583,24.689],[120.97025,24.6885],[120.96659,24.68634],[120.96389,24.68238],[120.96613,24.67666],[120.96624,24.67306],[120.96549,24.66784],[120.96403,24.66151],[120.96414,24.65838],[120.96169,24.65495],[120.95922,24.65341],[120.95678,24.65214],[120.95427,24.64972],[120.95482,24.64699],[120.95529,24.64226],[120.95607,24.6371],[120.95647,24.63451],[120.95509,24.63206],[120.95311,24.62866],[120.95317,24.62473],[120.95074,24.62047],[120.94942,24.61879],[120.94631,24.61805],[120.94434,24.6173],[120.94489,24.61618],[120.9508,24.61549],[120.95217,24.61423],[120.95434,24.61406],[120.95628,24.61391],[120.95813,24.61244],[120.95892,24.61015],[120.95802,24.60822],[120.95853,24.60541],[120.95892,24.6039],[120.95642,24.60012],[120.95531,24.59799],[120.9548,24.59616],[120.95246,24.59186],[120.95083,24.58956],[120.94889,24.58753],[120.94584,24.58692],[120.944,24.58611],[120.94233,24.58262],[120.94041,24.58027],[120.9393,24.57623],[120.93607,24.57354],[120.93712,24.56949],[120.93546,24.5672],[120.93295,24.56464],[120.9316,24.56238],[120.92925,24.55952],[120.92707,24.555],[120.92553,24.55339],[120.92444,24.54905],[120.92512,24.54731],[120.92188,24.5424],[120.91793,24.5383],[120.91842,24.53498],[120.91681,24.52973],[120.91337,24.52917],[120.91284,24.52702],[120.91342,24.52478],[120.91213,24.52011],[120.91184,24.51787],[120.91108,24.51606],[120.91035,24.51361],[120.90991,24.51129],[120.91057,24.50761],[120.90737,24.50498],[120.90476,24.50149],[120.9029,24.50025],[120.90226,24.49789],[120.90151,24.49508],[120.9007,24.49303],[120.89961,24.48989],[120.89929,24.48826],[120.89914,24.48525],[120.89777,24.48354],[120.89605,24.48161],[120.891,24.4777],[120.88988,24.47695],[120.88944,24.47534],[120.88933,24.47386],[120.8875,24.47181],[120.8866,24.47011],[120.88651,24.46717],[120.88598,24.46634],[120.88405,24.46616],[120.88374,24.46528],[120.88584,24.4632],[120.88468,24.45987],[120.88374,24.45944],[120.88144,24.45755],[120.87774,24.45559],[120.8745,24.45223],[120.87387,24.44709],[120.87356,24.44223],[120.87173,24.43883],[120.86601,24.4265],[120.86285,24.41702],[120.86313,24.41374],[120.86532,24.4104],[120.86508,24.40577],[120.86705,24.40151],[120.86734,24.3985],[120.865,24.39714],[120.8635,24.39819],[120.86217,24.39625],[120.86037,24.39525],[120.86051,24.39229],[120.85796,24.38945],[120.85606,24.38746],[120.85377,24.38513],[120.84952,24.38065],[120.8477,24.38019],[120.84505,24.37877],[120.84374,24.37703],[120.84279,24.37431],[120.84103,24.37314],[120.84056,24.37078],[120.84113,24.36776],[120.8413,24.36547],[120.83967,24.363],[120.8377,24.36205],[120.83633,24.35619],[120.83428,24.35541],[120.83289,24.35254],[120.83028,24.35053],[120.8289,24.3484],[120.82697,24.34596],[120.82694,24.34283],[120.82601,24.34015],[120.8222,24.33986],[120.82055,24.34064],[120.81567,24.33997],[120.81287,24.33974],[120.81024,24.33868],[120.80982,24.33646],[120.80811,24.33521],[120.80639,24.33409],[120.81318,24.33148],[120.81706,24.32966],[120.81878,24.32908],[120.82177,24.32737],[120.82396,24.32301],[120.82368,24.3178],[120.81933,24.30917],[120.81342,24.30547],[120.81085,24.30339],[120.80585,24.30372],[120.80282,24.30347],[120.80039,24.30303],[120.8024,24.29979],[120.80094,24.2951],[120.79827,24.28549],[120.80092,24.28505],[120.80709,24.28396],[120.80945,24.28277],[120.81338,24.28095],[120.81739,24.27742],[120.82012,24.26813],[120.82549,24.25479],[120.83021,24.24854],[120.83366,24.24131],[120.83676,24.23059],[120.83715,24.22227],[120.83864,24.21314],[120.83966,24.2086],[120.83976,24.20316],[120.83986,24.19999],[120.83943,24.1977],[120.83908,24.19428],[120.83935,24.19131],[120.84028,24.18704],[120.84059,24.18398],[120.84036,24.18151],[120.83853,24.1787],[120.83882,24.17689],[120.83863,24.17434],[120.84114,24.17029],[120.84285,24.1684],[120.84284,24.16637],[120.84507,24.16415],[120.84721,24.16292],[120.85039,24.16236],[120.85311,24.16143],[120.85551,24.16116],[120.85798,24.1606],[120.86006,24.16069],[120.86252,24.1601],[120.86291,24.15924],[120.8648,24.15869],[120.86651,24.15881],[120.86927,24.15886],[120.86997,24.15742],[120.87154,24.15617],[120.87237,24.15499],[120.8715,24.15479],[120.86996,24.1537],[120.87005,24.15237],[120.86983,24.15092],[120.86921,24.14991],[120.86918,24.14913],[120.86991,24.14834],[120.86956,24.14465],[120.87037,24.14488],[120.87117,24.14633],[120.87212,24.14728],[120.87324,24.15036],[120.87383,24.15199],[120.8757,24.15412],[120.87724,24.15358],[120.87721,24.15146],[120.8777,24.14914],[120.87738,24.14774],[120.87636,24.14623],[120.87614,24.1452],[120.87547,24.14345],[120.87538,24.14172],[120.87573,24.14106],[120.87616,24.13928],[120.87567,24.13796],[120.87543,24.13594],[120.87416,24.13471],[120.87492,24.13397],[120.8751,24.13285],[120.87556,24.131],[120.87492,24.12938],[120.87418,24.1293],[120.87486,24.12857],[120.87608,24.13041],[120.87703,24.13054],[120.87767,24.13022],[120.87847,24.13137],[120.87887,24.1318],[120.87833,24.13224],[120.87861,24.13229],[120.8792,24.13216],[120.88026,24.13183],[120.88076,24.13008],[120.88132,24.12912],[120.8815,24.12858],[120.87922,24.12851],[120.87836,24.1279],[120.87868,24.12648],[120.88044,24.12371],[120.88177,24.12295],[120.88326,24.12351],[120.8842,24.12383],[120.88471,24.12363],[120.8856,24.12302],[120.88637,24.12291],[120.88675,24.12195],[120.88666,24.12147],[120.88725,24.12053],[120.88914,24.12007],[120.88956,24.11868],[120.89044,24.11845],[120.89118,24.11784],[120.89121,24.11702],[120.89076,24.11677],[120.88988,24.11612],[120.88847,24.11547],[120.88895,24.11513],[120.88917,24.11389],[120.88951,24.1117],[120.89165,24.11044],[120.89123,24.10857],[120.89131,24.10689],[120.89078,24.10546],[120.88944,24.10353],[120.88901,24.1032],[120.89007,24.10263],[120.8898,24.10078],[120.88913,24.09966],[120.88927,24.09894],[120.8881,24.09694],[120.88809,24.0952],[120.88609,24.08982],[120.88446,24.08538],[120.88182,24.08075],[120.87997,24.08024],[120.87871,24.08054],[120.87769,24.08001],[120.87737,24.07776],[120.87618,24.07147],[120.87592,24.06698],[120.87764,24.0635],[120.87931,24.06191],[120.88053,24.06015],[120.8805,24.0578],[120.88164,24.05826],[120.88252,24.05942],[120.88378,24.06095],[120.88559,24.06213],[120.89319,24.06115],[120.9005,24.06039],[120.9059,24.05806],[120.9129,24.0579],[120.92246,24.05845],[120.92626,24.05827],[120.93222,24.05902],[120.93724,24.0585],[120.9345,24.05243],[120.93508,24.05077],[120.93574,24.05001],[120.93362,24.04955],[120.93277,24.04989],[120.93506,24.04823],[120.9358,24.04827],[120.93425,24.04673],[120.93698,24.0472],[120.93697,24.04673],[120.93499,24.04608],[120.93207,24.04755],[120.93023,24.04554],[120.92807,24.04396],[120.92451,24.03556],[120.92623,24.03281],[120.92925,24.03139],[120.93218,24.0275],[120.93791,24.02668],[120.94031,24.02751],[120.94368,24.02757],[120.94652,24.0251],[120.95073,24.0233],[120.9532,24.01568],[120.95327,24.01277],[120.95485,24.00807],[120.95662,24.00088],[120.95676,23.99611],[120.95779,23.98906],[120.96196,23.97631],[120.95271,23.97006],[120.94774,23.97099],[120.94656,23.96737],[120.94625,23.96381],[120.94344,23.95726],[120.93875,23.95284],[120.93781,23.94944],[120.93534,23.94498],[120.93137,23.94404],[120.92738,23.94005],[120.92677,23.93576],[120.92419,23.93323],[120.92225,23.93198],[120.92243,23.92802],[120.92251,23.92223],[120.92425,23.91917],[120.92695,23.91713],[120.92597,23.91092],[120.92683,23.90556],[120.92979,23.90162],[120.93332,23.89863],[120.93239,23.8956],[120.92805,23.8943],[120.92318,23.89169],[120.92137,23.88512],[120.92062,23.87971],[120.9195,23.87596],[120.92022,23.87388],[120.91881,23.87222],[120.91656,23.872],[120.91621,23.86875],[120.91467,23.86537],[120.91201,23.86594],[120.90761,23.86754],[120.90417,23.86701],[120.904,23.86339],[120.9025,23.86244],[120.89985,23.86093],[120.90081,23.85746],[120.9022,23.85635],[120.90125,23.85192],[120.90096,23.84836],[120.9014,23.84437],[120.89972,23.84308],[120.89731,23.84237],[120.89828,23.84115],[120.9011,23.84033],[120.9028,23.84001],[120.90255,23.83901],[120.89929,23.83609],[120.89662,23.83418],[120.89563,23.83268],[120.89629,23.83128],[120.89516,23.83064],[120.8938,23.82888],[120.89315,23.82555],[120.89228,23.8266],[120.891,23.8255],[120.88912,23.82491],[120.88784,23.82341],[120.88844,23.82207],[120.88718,23.8196],[120.88485,23.8175],[120.88403,23.8157],[120.88559,23.8138],[120.88616,23.81138],[120.88517,23.80934],[120.88338,23.80715],[120.88232,23.80758],[120.88119,23.80634],[120.87983,23.80706],[120.87679,23.80738],[120.87515,23.8076],[120.87352,23.80767],[120.8699,23.80738],[120.86828,23.80277],[120.86888,23.79819],[120.86807,23.79475],[120.86626,23.79653],[120.86395,23.79967],[120.86293,23.80128],[120.8611,23.80373],[120.86026,23.80721],[120.85771,23.80755],[120.85222,23.80723],[120.85026,23.81127],[120.84379,23.80859],[120.8402,23.80701],[120.83746,23.80631],[120.83283,23.80779],[120.82942,23.80921],[120.82593,23.80966],[120.8222,23.81008],[120.81787,23.81127],[120.81551,23.81141],[120.81331,23.81176],[120.81053,23.81288],[120.8053,23.81282],[120.80329,23.81319],[120.79549,23.81269],[120.78828,23.81268],[120.78033,23.8095],[120.77925,23.80741],[120.77643,23.80754],[120.77316,23.80895],[120.77045,23.81085],[120.7671,23.81368],[120.76146,23.81466],[120.75951,23.8164],[120.75663,23.81704],[120.75302,23.81839],[120.73808,23.8236],[120.73173,23.82631],[120.72428,23.82465],[120.71891,23.82172],[120.71134,23.81538],[120.70675,23.81016],[120.70207,23.80442],[120.7001,23.80129],[120.70507,23.79677],[120.70774,23.79676],[120.70706,23.792],[120.70591,23.78921],[120.7049,23.78452],[120.70306,23.77709],[120.69751,23.7649],[120.69427,23.76075],[120.69218,23.75671],[120.68613,23.75265],[120.68201,23.74957],[120.67751,23.74734],[120.67397,23.74511],[120.67298,23.74225],[120.67102,23.7394],[120.66794,23.73235],[120.66684,23.72827],[120.66774,23.72435],[120.67117,23.72029],[120.6709,23.71971],[120.66867,23.71648],[120.66919,23.71294],[120.66496,23.70879],[120.66337,23.70568],[120.66323,23.70268],[120.66301,23.70094],[120.66292,23.6955],[120.66345,23.69007],[120.66363,23.68631],[120.66437,23.68386],[120.66482,23.68061],[120.66481,23.67747],[120.66574,23.67233],[120.66611,23.66705],[120.66579,23.66283],[120.66354,23.65927],[120.66077,23.65736],[120.65861,23.65385],[120.65772,23.65052],[120.65759,23.64847],[120.65819,23.64455],[120.65775,23.64189],[120.65788,23.63965],[120.65902,23.63531],[120.65931,23.63294],[120.65866,23.62952],[120.65478,23.62606],[120.65343,23.62336],[120.6549,23.62306],[120.65775,23.62184],[120.65449,23.61967],[120.65593,23.61939],[120.65717,23.6186],[120.65815,23.61882],[120.65734,23.61833],[120.65661,23.61808],[120.65507,23.6178],[120.65444,23.61719],[120.65497,23.61667],[120.65629,23.61616],[120.6567,23.61544],[120.65563,23.61299],[120.65652,23.61163],[120.65794,23.60984],[120.65941,23.6086],[120.66174,23.60804],[120.66313,23.60633],[120.66356,23.60525],[120.66516,23.60415],[120.66629,23.60473],[120.66823,23.60572],[120.67097,23.60505],[120.67289,23.60559],[120.67454,23.6054],[120.67771,23.60598],[120.68072,23.60564],[120.68512,23.60685],[120.68643,23.60779],[120.68686,23.60676],[120.6875,23.60525],[120.68995,23.60484],[120.68706,23.60395],[120.6853,23.60318],[120.68775,23.5995],[120.68973,23.59812],[120.68922,23.59483],[120.69069,23.59099],[120.69298,23.58967],[120.6937,23.5887],[120.69459,23.58747],[120.69335,23.58802],[120.6959,23.58394],[120.69678,23.58421],[120.69775,23.58449],[120.69806,23.58814],[120.69954,23.59058],[120.69982,23.59167],[120.69944,23.58923],[120.69992,23.5889],[120.70014,23.5886],[120.70072,23.58938],[120.70229,23.58808],[120.70285,23.58544],[120.70354,23.58402],[120.70268,23.57862],[120.70595,23.57638],[120.7093,23.57502],[120.71079,23.57272],[120.71264,23.57172],[120.71504,23.57255],[120.71872,23.57073],[120.72116,23.56946],[120.723,23.56728],[120.72471,23.56473],[120.72507,23.56345],[120.72551,23.56098],[120.72824,23.55797],[120.72918,23.5576],[120.72912,23.55662],[120.73034,23.5557],[120.73097,23.55414],[120.73155,23.55155],[120.73328,23.5489],[120.73467,23.54652],[120.73511,23.54433],[120.73724,23.54321],[120.73908,23.54107],[120.73844,23.53648],[120.73724,23.53406],[120.73515,23.53162],[120.73339,23.53262],[120.73256,23.53477],[120.73269,23.53679],[120.73288,23.53809],[120.73183,23.53664],[120.73071,23.5363],[120.72947,23.53484],[120.72847,23.53391],[120.72775,23.53278],[120.7267,23.53157],[120.72421,23.53065],[120.7229,23.52939],[120.7206,23.52848],[120.72016,23.53159],[120.71867,23.53198],[120.71688,23.53118],[120.71333,23.53096],[120.71206,23.53104],[120.71091,23.53154],[120.7112,23.53318],[120.71378,23.53413],[120.71155,23.53379],[120.71053,23.53389],[120.70913,23.53313],[120.70809,23.53354],[120.70613,23.53426],[120.70708,23.53412],[120.70817,23.53423],[120.70929,23.53441],[120.71004,23.5351],[120.71099,23.53517],[120.71131,23.53658],[120.71265,23.53812],[120.71447,23.53899],[120.71567,23.53941],[120.71546,23.54054],[120.71508,23.54184],[120.71566,23.54298],[120.71524,23.54371],[120.7138,23.54404],[120.71316,23.5432],[120.71198,23.54265],[120.71076,23.54251],[120.70974,23.54294],[120.70898,23.54255],[120.70818,23.54339],[120.70774,23.54426],[120.70665,23.54396],[120.70596,23.5444],[120.70599,23.54656],[120.70379,23.54773],[120.70079,23.54975],[120.69986,23.54884],[120.69888,23.54758],[120.69928,23.5466],[120.69925,23.54525],[120.69976,23.54433],[120.69961,23.54355],[120.69902,23.54301],[120.69876,23.54187],[120.69751,23.54205],[120.69654,23.5421],[120.69597,23.54236],[120.69601,23.54327],[120.6958,23.54326],[120.69492,23.54268],[120.6939,23.54272],[120.69339,23.54383],[120.69276,23.54306],[120.69261,23.54164],[120.69277,23.54108],[120.69213,23.54107],[120.69142,23.54139],[120.69064,23.54093],[120.68964,23.54049],[120.68861,23.54129],[120.68804,23.542],[120.6883,23.54261],[120.68744,23.54411],[120.6865,23.54506],[120.68619,23.54648],[120.68593,23.54735],[120.68671,23.54786],[120.68544,23.54769],[120.68457,23.54783],[120.68414,23.54859],[120.68327,23.5481],[120.68249,23.54874],[120.68153,23.54905],[120.68047,23.54972],[120.67935,23.55114],[120.67798,23.55168],[120.67622,23.55241],[120.67478,23.55229],[120.67367,23.55235],[120.67275,23.55325],[120.67218,23.55376],[120.6719,23.55405],[120.67139,23.5536],[120.67094,23.55386],[120.6701,23.5544],[120.66933,23.55498],[120.66842,23.55569],[120.66825,23.55644],[120.66966,23.55655],[120.67081,23.55655],[120.67187,23.55674],[120.67282,23.5568],[120.6732,23.55588],[120.67396,23.55428],[120.67507,23.55405],[120.67624,23.55457],[120.6764,23.55557],[120.67788,23.55623],[120.67831,23.557],[120.67829,23.55744],[120.67853,23.55862],[120.67821,23.55909],[120.6776,23.55968],[120.67816,23.5598],[120.67904,23.55946],[120.67866,23.55879],[120.67791,23.55654],[120.67527,23.55398],[120.67313,23.55542],[120.66922,23.55666],[120.67135,23.55329],[120.67212,23.55358],[120.6756,23.55245],[120.68109,23.54913],[120.68339,23.54808],[120.68641,23.54756],[120.68456,23.5454],[120.68343,23.54359],[120.67949,23.54265],[120.67639,23.54076],[120.67358,23.53929],[120.66898,23.5389],[120.66474,23.5394],[120.66993,23.53696],[120.67435,23.53632],[120.677,23.53816],[120.68022,23.53865],[120.67948,23.53546],[120.67807,23.53305],[120.67711,23.53175],[120.6758,23.52989],[120.67385,23.53091],[120.67169,23.52747],[120.6705,23.53017],[120.66486,23.53155],[120.66125,23.53239],[120.65996,23.5297],[120.65677,23.53088],[120.65247,23.53036],[120.64866,23.53233],[120.64565,23.53075],[120.64407,23.53278],[120.64152,23.53443],[120.63758,23.53469],[120.63521,23.53634],[120.62916,23.53569],[120.62923,23.53354],[120.62803,23.52874],[120.62979,23.52714],[120.63234,23.52422],[120.6316,23.52176],[120.62968,23.52015],[120.62604,23.51889],[120.62335,23.51715],[120.62018,23.51689],[120.62305,23.51829],[120.6206,23.51792],[120.61624,23.51864],[120.61377,23.52031],[120.61159,23.52017],[120.6117,23.51903],[120.61359,23.51492],[120.6088,23.51669],[120.6078,23.51696],[120.60868,23.5184],[120.60708,23.51816],[120.60582,23.51527],[120.60402,23.51596],[120.60174,23.51601],[120.59734,23.51918],[120.59307,23.51797],[120.58523,23.51752],[120.57472,23.51867],[120.56102,23.52087],[120.55109,23.51641],[120.54314,23.50822],[120.53591,23.49898],[120.53704,23.48901],[120.5378,23.48163],[120.53735,23.47102],[120.53274,23.46514],[120.53038,23.45902],[120.5282,23.44675],[120.51326,23.44651],[120.50218,23.44806],[120.4908,23.44838],[120.48216,23.44804],[120.46637,23.44301],[120.45237,23.43718],[120.44901,23.42616],[120.4403,23.4216],[120.43624,23.41206],[120.43577,23.40378],[120.43901,23.3961],[120.43341,23.38686],[120.43078,23.3786],[120.42605,23.36518],[120.41692,23.35209],[120.41035,23.34285],[120.40694,23.33058],[120.40622,23.3188],[120.40973,23.31048],[120.41533,23.30288],[120.42311,23.29655],[120.42701,23.28898],[120.43163,23.28522],[120.43975,23.28267],[120.43725,23.27614],[120.43901,23.27096],[120.44204,23.26583],[120.45041,23.26361],[120.45612,23.25956],[120.46179,23.25553],[120.46265,23.25127],[120.46144,23.24813],[120.46135,23.24388],[120.45983,23.24042],[120.46162,23.23775],[120.46834,23.23986],[120.46995,23.23775],[120.47155,23.24014],[120.47158,23.23595],[120.47404,23.23279],[120.47151,23.22521],[120.46773,23.22058],[120.46634,23.21738],[120.46436,23.21493],[120.46383,23.21124],[120.46224,23.20664],[120.46018,23.20263],[120.46433,23.19898],[120.46689,23.19611],[120.46705,23.19164],[120.47234,23.18968],[120.47735,23.18875],[120.48536,23.1943],[120.48989,23.18802],[120.48956,23.17735],[120.48936,23.16603],[120.48727,23.15261],[120.47974,23.13849],[120.47466,23.1317],[120.46918,23.12619],[120.47058,23.11628],[120.47943,23.10768],[120.48419,23.0935],[120.48859,23.08147],[120.49721,23.07444],[120.50775,23.07161],[120.5184,23.07085],[120.51859,23.07946],[120.52336,23.08372],[120.52702,23.08235],[120.53261,23.07552],[120.5362,23.07597],[120.53839,23.07624],[120.54167,23.07201],[120.54565,23.07367],[120.54742,23.07238],[120.55232,23.06962],[120.55545,23.06643],[120.55905,23.06114],[120.56478,23.06263],[120.57158,23.06277],[120.57882,23.0706],[120.5842,23.08034],[120.59109,23.08348],[120.59422,23.08072],[120.60002,23.08242],[120.60477,23.0815],[120.60625,23.07993],[120.60773,23.07595],[120.61051,23.07457],[120.61337,23.07711],[120.6184,23.07793],[120.62068,23.07636],[120.62198,23.07399],[120.62188,23.07021],[120.61968,23.0689],[120.61976,23.06652],[120.62095,23.06289],[120.62425,23.06609],[120.6298,23.06783],[120.63331,23.06999],[120.63742,23.06984],[120.64079,23.07121],[120.64319,23.07202],[120.64661,23.07078],[120.6501,23.07125],[120.65427,23.07078],[120.6581,23.07075],[120.66232,23.07048],[120.66625,23.07023],[120.66966,23.07052],[120.67269,23.06623],[120.67165,23.06427],[120.66843,23.05873],[120.66765,23.05105],[120.66729,23.04206],[120.66348,23.03084],[120.66343,23.02428],[120.66546,23.01588],[120.66519,23.00906],[120.65925,23.00735],[120.64928,23.00656],[120.64322,22.99753],[120.6464,22.98411],[120.65178,22.97512],[120.65133,22.96944],[120.651,22.96154],[120.64984,22.95398],[120.65068,22.94255],[120.65182,22.93263],[120.6526,22.92635],[120.65028,22.92005],[120.64922,22.90928],[120.64769,22.89885],[120.64775,22.88787],[120.64829,22.8818],[120.64388,22.8758],[120.64205,22.86382],[120.63873,22.85395],[120.62898,22.84663],[120.62751,22.84087],[120.62686,22.82782],[120.62513,22.81383],[120.62295,22.79949],[120.62232,22.7875],[120.61515,22.78383],[120.61543,22.77015],[120.61815,22.75735],[120.6192,22.74434],[120.62716,22.73521],[120.63548,22.72373],[120.64129,22.71682],[120.64479,22.71813],[120.64768,22.71293],[120.64226,22.70663],[120.63088,22.69738],[120.63672,22.68867],[120.63436,22.6833],[120.63329,22.67142],[120.63001,22.6585],[120.6287,22.6494],[120.6259,22.63843],[120.62618,22.62698],[120.62098,22.61429],[120.62038,22.60102],[120.62187,22.58465],[120.62076,22.573],[120.62047,22.55878],[120.62067,22.54447],[120.62132,22.53238],[120.61961,22.52189],[120.6095,22.51522],[120.59599,22.51106],[120.58784,22.50425],[120.59319,22.49314],[120.60306,22.47985],[120.60992,22.46667],[120.61234,22.45484],[120.60472,22.44201],[120.60595,22.42611],[120.61015,22.41409],[120.61448,22.40264],[120.61607,22.38992],[120.6124,22.37996],[120.60714,22.36876],[120.60807,22.35593],[120.60919,22.347],[120.61506,22.33509],[120.62584,22.32548],[120.6349,22.31617],[120.64217,22.30666],[120.64397,22.29339],[120.64641,22.2845],[120.64959,22.27547],[120.65319,22.26493],[120.65549,22.25355],[120.66325,22.24428],[120.67277,22.2339],[120.67649,22.22537],[120.68053,22.21743],[120.68722,22.20611],[120.6921,22.19451],[120.69257,22.18171],[120.69492,22.17239],[120.69811,22.16077],[120.70116,22.14749],[120.70328,22.13854],[120.70721,22.13004],[120.71155,22.12285],[120.71444,22.1141],[120.71668,22.10632],[120.7175,22.09563],[120.71673,22.08751],[120.72238,22.07819],[120.7283,22.07264],[120.734,22.08093],[120.74189,22.08501],[120.74732,22.09072],[120.75231,22.09768],[120.76182,22.10126],[120.76228,22.10692],[120.76293,22.11348],[120.76504,22.11809],[120.77051,22.12276],[120.77948,22.12868],[120.78621,22.12798],[120.78736,22.13131],[120.79302,22.13035],[120.79614,22.13186],[120.79944,22.13445],[120.80191,22.13629],[120.80313,22.13804],[120.80487,22.1402],[120.80793,22.14444],[120.81273,22.14618],[120.81543,22.14828],[120.81879,22.15302],[120.82174,22.15633],[120.82447,22.15991],[120.82723,22.16229],[120.82852,22.16695],[120.83221,22.17169],[120.83695,22.175],[120.84095,22.17779],[120.84372,22.18],[120.84769,22.18312],[120.8481,22.18957],[120.84725,22.19613],[120.84931,22.20213],[120.85421,22.20544],[120.857,22.20518],[120.85861,22.20662],[120.86091,22.20813],[120.86469,22.21036],[120.86702,22.21281],[120.86809,22.21602],[120.86633,22.21918],[120.86692,22.22353],[120.86778,22.22669],[120.86841,22.23165],[120.86544,22.23314],[120.86327,22.23449],[120.8609,22.23598],[120.85806,22.23668],[120.85814,22.2383],[120.85726,22.24016],[120.85506,22.24056],[120.85277,22.24274],[120.84874,22.24317],[120.84505,22.24255],[120.84075,22.24461],[120.83705,22.24478],[120.83517,22.24724],[120.83844,22.24747],[120.83954,22.25128],[120.8419,22.25691],[120.84418,22.25977],[120.84617,22.26152],[120.8498,22.26438],[120.85115,22.26881],[120.85275,22.26953],[120.85483,22.26846],[120.85758,22.26733],[120.85983,22.26808],[120.86257,22.27163],[120.86224,22.2756],[120.863925,22.277636],[120.86682,22.27631],[120.86844,22.27831],[120.86848,22.27974],[120.87117,22.28197],[120.87164,22.28301],[120.87245,22.2872],[120.87793,22.2905],[120.88615,22.29466],[120.88909,22.30342],[120.89143,22.31603],[120.89245,22.33084],[120.89317,22.33918],[120.8999,22.34768],[120.90658,22.35746],[120.90896,22.36681],[120.91234,22.38107],[120.91551,22.38924],[120.91959,22.39612],[120.92178,22.40284],[120.92555,22.41143],[120.93056,22.42009],[120.93472,22.43135],[120.938,22.43965],[120.94275,22.45066],[120.94084,22.45727],[120.94665,22.46306],[120.9496,22.4738],[120.95328,22.48535],[120.95606,22.49565],[120.95863,22.50583],[120.96445,22.51914],[120.96871,22.53391],[120.97048,22.54162],[120.97175,22.54763],[120.97423,22.55219],[120.97751,22.5592],[120.98004,22.5643],[120.98565,22.5724],[120.99385,22.58215],[120.99339,22.59377],[120.99981,22.60243],[121.00759,22.61327],[121.01211,22.62445],[121.0156,22.63737],[121.01942,22.64732],[121.0255,22.65784],[121.0332,22.66759],[121.04142,22.67602],[121.04604,22.68899],[121.05286,22.7017],[121.06435,22.70909],[121.07327,22.71163],[121.08439,22.7199],[121.09351,22.72255],[121.10688,22.72719],[121.11786,22.72733],[121.13315,22.73482],[121.14717,22.74193],[121.15744,22.75112],[121.16333,22.76051],[121.16773,22.76976],[121.17772,22.77888],[121.18452,22.7904],[121.191,22.79336],[121.19657,22.79957],[121.19359,22.81243],[121.18896,22.81945],[121.18543,22.82924],[121.18777,22.84042],[121.19039,22.84987],[121.1979,22.85622],[121.2037,22.86167],[121.2107,22.86507],[121.21927,22.86783],[121.22884,22.87516],[121.23626,22.88464],[121.2458,22.89121],[121.25095,22.90153],[121.25938,22.90673],[121.26443,22.91842],[121.27015,22.9285],[121.27717,22.94041],[121.28129,22.94936],[121.2847,22.95426],[121.29216,22.9605],[121.30157,22.96595],[121.30777,22.9772],[121.31116,22.98924],[121.30702,22.99469],[121.29686,22.98744],[121.28917,22.99589],[121.28664,23.00665],[121.28469,23.01097],[121.28112,23.01535],[121.28573,23.01873],[121.28874,23.024],[121.28709,23.02518],[121.28674,23.03078],[121.2887,23.03087],[121.29105,23.03491],[121.29441,23.03702],[121.29815,23.04104],[121.30104,23.04583],[121.30184,23.05037],[121.30241,23.05629],[121.30541,23.05918],[121.3052,23.06199],[121.30214,23.06529],[121.30211,23.07125],[121.29982,23.07558],[121.30108,23.08254],[121.29475,23.08162],[121.2972,23.08347],[121.30039,23.08967],[121.29845,23.09333],[121.30186,23.09555],[121.3025,23.09829],[121.29785,23.106],[121.29743,23.10808],[121.29369,23.1086],[121.28893,23.10751],[121.28434,23.10514],[121.2809,23.10367],[121.27588,23.10031],[121.27317,23.09849],[121.27311,23.10163],[121.273,23.10341],[121.27307,23.10615],[121.27535,23.10766],[121.2751,23.10946],[121.27699,23.11141],[121.27801,23.11225],[121.2793,23.11336],[121.28212,23.11458],[121.28344,23.1165],[121.28365,23.11817],[121.28131,23.1189],[121.27917,23.12082],[121.27994,23.12647],[121.2809,23.13258],[121.27984,23.13738],[121.27822,23.14147],[121.27379,23.1435],[121.26756,23.1433],[121.26719,23.14994],[121.26595,23.15629],[121.25843,23.15617],[121.25776,23.16534],[121.2578,23.17117],[121.25241,23.17281],[121.24832,23.1763],[121.25651,23.18533],[121.26409,23.1936],[121.27045,23.20223],[121.27761,23.21283],[121.28204,23.22245],[121.28992,23.23513],[121.29703,23.24528],[121.29799,23.25732],[121.3026,23.26728],[121.31239,23.27289],[121.32216,23.2795],[121.32886,23.28931],[121.33453,23.29369],[121.33841,23.28934],[121.34099,23.28119],[121.34643,23.28138],[121.34958,23.27716],[121.35307,23.27387],[121.3491,23.26847],[121.34952,23.26619],[121.35696,23.26655],[121.36821,23.26704],[121.3861,23.26406],[121.38511,23.26108],[121.38872,23.25703],[121.38486,23.25515],[121.3877,23.25409],[121.39553,23.25257],[121.40418,23.25171],[121.40892,23.25086],[121.4096,23.24847],[121.41284,23.2507],[121.41739,23.24761],[121.41915,23.25781],[121.42538,23.26802],[121.426,23.27608],[121.42933,23.28575],[121.43577,23.29461],[121.44194,23.30466],[121.44674,23.31312],[121.45418,23.31504],[121.4585,23.32228],[121.46405,23.33328],[121.46618,23.34409],[121.46911,23.35603],[121.47082,23.36998],[121.47271,23.38277],[121.47613,23.3946],[121.481,23.40364],[121.48421,23.41765],[121.49011,23.42928],[121.4955,23.44109],[121.49692,23.45465],[121.4892,23.46429],[121.49279,23.46916],[121.50271,23.47301],[121.5077,23.47929],[121.50847,23.49005],[121.50411,23.49573],[121.50409,23.50639],[121.5024,23.51418],[121.50239,23.52137],[121.50456,23.53036],[121.50684,23.53824],[121.50971,23.54958],[121.51371,23.55791],[121.51931,23.56896],[121.52437,23.5806],[121.52688,23.5908],[121.52533,23.59754],[121.5237,23.60117],[121.52898,23.60398],[121.52932,23.61773],[121.52985,23.62923],[121.53317,23.64132],[121.53583,23.65097],[121.54116,23.65795],[121.54291,23.66488],[121.54443,23.67119],[121.54418,23.67606],[121.54579,23.67955],[121.5469,23.68376],[121.54921,23.69131],[121.55006,23.69933],[121.54623,23.70674],[121.54726,23.71283],[121.54741,23.71797],[121.55047,23.72279],[121.55667,23.72697],[121.55667,23.73275],[121.55663,23.73801],[121.55766,23.73338],[121.55863,23.73483],[121.55894,23.73936],[121.55833,23.744],[121.55751,23.75045],[121.55841,23.75508],[121.55581,23.7583],[121.55928,23.76251],[121.56083,23.76767],[121.56156,23.77094],[121.55901,23.77027],[121.55575,23.77408],[121.56022,23.7776],[121.56459,23.78764],[121.56552,23.79315],[121.56848,23.79767],[121.57009,23.80463],[121.5728,23.80946],[121.57617,23.81508],[121.58301,23.82349],[121.58657,23.83294],[121.59189,23.84399],[121.59589,23.85697],[121.59891,23.87276],[121.60181,23.8847],[121.60406,23.89811],[121.60352,23.91181],[121.6063,23.92326],[121.60012,23.92263],[121.59339,23.9295],[121.59429,23.93937],[121.5991,23.95018],[121.60453,23.96187],[121.61185,23.97053],[121.61662,23.97683],[121.62211,23.9824],[121.63173,23.98902],[121.63331,23.99625],[121.62822,23.99953]];
+
+const routeLatLngs = ROUTE.map(c => [c[1], c[0]]);
+L.polyline(routeLatLngs, {
+  color: '#00d4ff', weight: 3, opacity: 0.8
+}).addTo(map);
+
+// Checkpoint markers
+const cpIcons = {
+  start: { color: '#ff6b35', emoji: '🏁' },
+  supply: { color: '#00d4ff', emoji: '🏪' },
+  sleep: { color: '#a855f7', emoji: '🛌' },
+  photo: { color: '#ffd700', emoji: '📸' },
+  finish: { color: '#00ff88', emoji: '🎯' },
+};
+
+CPS.forEach(cp => {
+  const ic = cpIcons[cp.type] || cpIcons.supply;
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${ic.color};
+      border:2px solid #fff;
+      border-radius:50%;
+      width:24px;height:24px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:12px;
+      box-shadow:0 0 8px ${ic.color};
+    ">${ic.emoji}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+  L.marker([cp.lat, cp.lon], { icon })
+    .addTo(map)
+    .bindPopup(`
+      <div style="background:#111827;color:#e2e8f0;border-radius:8px;padding:12px;min-width:200px;font-family:sans-serif;">
+        <strong style="color:#00d4ff;font-size:14px;">${cp.name}</strong><br>
+        <span style="color:#64748b;font-size:12px;">${cp.km} km</span><br>
+        ${cp.etaHr > 0 ? `<span style="color:#39ff14;font-size:12px;">預計: ${fmtDate(cp.etaDate)}</span><br>` : ''}
+        ${cp.cutoffHr > 0 ? `<span style="color:#ffd700;font-size:12px;">關門: ${fmtDate(cutoffDate(cp.cutoffHr))}</span><br>` : ''}
+        <span style="color:#94a3b8;font-size:11px;">${cp.note}</span><br>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+          <a href="${googleMapsUrl(cp.lat, cp.lon, cp.name)}" target="_blank" style="background:#4285f4;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px;text-decoration:none;">Google Maps</a>
+          <a href="${appleMapsUrl(cp.lat, cp.lon, cp.name)}" target="_blank" style="background:#ff9500;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px;text-decoration:none;">Apple Maps</a>
+        </div>
+      </div>
+    `, { maxWidth: 300 });
+});
+
+// GPS marker
+let gpsMarker = null, gpsWatch = null;
+let userLat = null, userLon = null;
+
+function startGPS() {
+  if (!navigator.geolocation) {
+    alert('此設備不支援 GPS');
+    return;
+  }
+  document.getElementById('gpsDot').classList.add('active');
+  document.getElementById('gpsStatusText').textContent = '定位中...';
+  gpsWatch = navigator.geolocation.watchPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLon = pos.coords.longitude;
+    document.getElementById('gpsStatusText').textContent = '已定位 ✓';
+    document.getElementById('gpsCoords').textContent = `${userLat.toFixed(4)}, ${userLon.toFixed(4)}`;
+
+    if (!gpsMarker) {
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="
+          background:#00ff88;
+          border:3px solid #fff;
+          border-radius:50%;
+          width:18px;height:18px;
+          box-shadow:0 0 12px #00ff88;
+          animation:pulse 1.5s infinite;
+        "></div>`,
+        iconSize: [18, 18], iconAnchor: [9, 9]
+      });
+      gpsMarker = L.marker([userLat, userLon], { icon }).addTo(map);
+    } else {
+      gpsMarker.setLatLng([userLat, userLon]);
+    }
+    map.setView([userLat, userLon], 13);
+
+    // Find nearest CP and update distance
+    const nearestDist = findNearestRouteDist(userLat, userLon);
+    if (nearestDist !== null) {
+      document.getElementById('gpsDist').textContent = `📍 估算位置: ~${nearestDist.toFixed(1)} km`;
+      updateProgress(nearestDist);
+    }
+  }, err => {
+    document.getElementById('gpsStatusText').textContent = '定位失敗: ' + err.message;
+  }, { enableHighAccuracy: true, maximumAge: 10000 });
+}
+
+function stopGPS() {
+  if (gpsWatch) navigator.geolocation.clearWatch(gpsWatch);
+  document.getElementById('gpsDot').classList.remove('active');
+  document.getElementById('gpsStatusText').textContent = '已停止';
+}
+
+function findNearestRouteDist(lat, lon) {
+  let minDist = Infinity, minIdx = 0;
+  for (let i = 0; i < ROUTE.length; i++) {
+    const dx = ROUTE[i][0] - lon, dy = ROUTE[i][1] - lat;
+    const d = dx*dx + dy*dy;
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  // Approximate distance as fraction of total route
+  return (minIdx / ROUTE.length) * 1219.2;
+}
+
+function updateProgress(km) {
+  const pct = Math.min(100, (km / 1219.2) * 100);
+  document.getElementById('pctDone').textContent = pct.toFixed(1) + '%';
+  document.getElementById('mainProgressBar').style.width = pct + '%';
+  document.getElementById('riddenKm').textContent = km.toFixed(1) + ' km';
+  document.getElementById('remainKm').textContent = (1219.2 - km).toFixed(1) + ' km';
+
+  // Find next CP
+  let nextCp = null;
+  for (let cp of CPS) {
+    if (cp.km > km) { nextCp = cp; break; }
+  }
+  if (nextCp) {
+    document.getElementById('nextCpName').textContent = '下一站：' + nextCp.name;
+    document.getElementById('nextCpDist').textContent = `距離：${(nextCp.km - km).toFixed(1)} km 剩餘`;
+    document.getElementById('nextCpETA').textContent = fmtDate(nextCp.etaDate);
+    if (nextCp.cutoffHr > 0) {
+      document.getElementById('nextCpCutoff').textContent = fmtDate(cutoffDate(nextCp.cutoffHr));
+      const buf = bufferHr(nextCp.etaHr, nextCp.cutoffHr);
+      const el = document.getElementById('nextCpBuffer');
+      el.innerHTML = bufferStr(buf);
+    }
+  }
+}
+
+// ========== COUNTDOWN ==========
+function updateCountdown() {
+  const now = new Date();
+  const targetFinish = new Date(START_TIME.getTime() + TARGET_HOURS * 3600000);
+  const diff = targetFinish - now;
+  if (diff > 0) {
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    document.getElementById('timeRemaining').textContent = `${String(h).padStart(3,'0')}:${String(m).padStart(2,'0')}`;
+  } else {
+    document.getElementById('timeRemaining').textContent = '🏁 已完賽';
+  }
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+
+// ========== SCHEDULE TABLE ==========
+function buildSchedule() {
+  const tbody = document.getElementById('scheduleTable');
+  let html = '';
+  CPS.forEach((cp, i) => {
+    const typeLabels = {
+      start: '<span class="badge badge-start">起點</span>',
+      supply: '<span class="badge badge-supply">補給</span>',
+      sleep: '<span class="badge badge-sleep">住宿</span>',
+      photo: '<span class="badge badge-photo">景點</span>',
+      finish: '<span class="badge badge-finish">終點</span>',
+    };
+    const rowClass = cp.type === 'sleep' ? 'row-sleep' : cp.type === 'photo' ? 'row-photo' : cp.type === 'finish' ? 'row-finish' : cp.type === 'start' ? 'row-current' : '';
+    const cutoffStr = cp.cutoffHr > 0 ? fmtDate(cutoffDate(cp.cutoffHr)) : '—';
+    const etaStr = cp.etaHr > 0 ? fmtDate(cp.etaDate) : fmtDate(START_TIME);
+    const buf = cp.cutoffHr > 0 ? bufferHr(cp.etaHr, cp.cutoffHr) : null;
+    const bufStr = buf !== null ? bufferStr(buf) : '—';
+    const stopStr = cp.stopMin > 0
+      ? (cp.type === 'sleep' ? `睡眠 ~${cp.sleepHr || 3}h<br><small style="color:var(--sleep)">出發: ${cp.depart}</small>` : `${cp.stopMin} 分`)
+      : '—';
+    const navHtml = `
+      <div class="nav-links">
+        <a class="nav-link nav-google" href="${googleMapsUrl(cp.lat, cp.lon, cp.name)}" target="_blank">Google</a>
+        <a class="nav-link nav-apple" href="${appleMapsUrl(cp.lat, cp.lon, cp.name)}" target="_blank">Apple</a>
+        <a class="nav-link nav-osm" href="${osmUrl(cp.lat, cp.lon)}" target="_blank">OSM</a>
+      </div>`;
+    html += `<tr class="${rowClass}">
+      <td class="time-mono" style="color:var(--muted)">${i+1}</td>
+      <td>
+        <strong>${cp.name}</strong><br>
+        <span style="font-size:11px;color:var(--muted)">${cp.note}</span>
+        ${cp.type === 'sleep' ? `<br><span style="font-size:11px;color:var(--sleep)">⚠️ 最晚 ${cp.arriveBy} 到達</span>` : ''}
+      </td>
+      <td class="time-mono">${cp.km}</td>
+      <td>${typeLabels[cp.type]||''}</td>
+      <td class="time-mono" style="color:var(--warn)">${cutoffStr}</td>
+      <td class="time-mono" style="color:var(--accent3)">${etaStr}</td>
+      <td class="buffer-cell">${bufStr}</td>
+      <td style="font-size:12px">${stopStr}</td>
+      <td>${navHtml}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+buildSchedule();
+
+// ========== SLEEP CARDS ==========
+function buildSleepCards() {
+  const sleepCps = CPS.filter(c => c.type === 'sleep');
+  const container = document.getElementById('sleepCards');
+  container.innerHTML = sleepCps.map((cp, i) => `
+    <div class="sleep-card">
+      <h3>🛌 第${i+1}夜住宿：${cp.hotel}</h3>
+      <div class="sleep-detail"><span class="key">位置</span><span class="val">${cp.name}</span></div>
+      <div class="sleep-detail"><span class="key">里程</span><span class="val">${cp.km} km</span></div>
+      <div class="sleep-detail"><span class="key">最晚到達</span><span class="val" style="color:var(--warn)">${cp.arriveBy}</span></div>
+      <div class="sleep-detail"><span class="key">預計到達</span><span class="val" style="color:var(--accent3)">${fmtDate(cp.etaDate)}</span></div>
+      <div class="sleep-detail"><span class="key">出發時間</span><span class="val" style="color:var(--sleep)">${cp.depart}</span></div>
+      <div class="sleep-detail"><span class="key">可睡時間</span><span class="val">${cp.sleepHr} 小時</span></div>
+      <div class="sleep-detail"><span class="key">GPS 座標</span><span class="val" style="font-size:11px">${cp.lat.toFixed(4)}, ${cp.lon.toFixed(4)}</span></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="nav-link nav-google" href="${googleMapsUrl(cp.lat, cp.lon, cp.hotel)}" target="_blank">📍 Google Maps</a>
+        <a class="nav-link nav-apple" href="${appleMapsUrl(cp.lat, cp.lon, cp.hotel)}" target="_blank">📱 Apple Maps</a>
+      </div>
+    </div>
+  `).join('');
+}
+buildSleepCards();
+
+// ========== STRATEGY ==========
+function buildStrategy() {
+  const cards = [
+    {
+      title: '🚀 配速策略',
+      items: [
+        '平路巡航速度：25 km/h',
+        '爬坡速度：12-15 km/h (FTP/體重比 2.5-3)',
+        '有效均速：20 km/h（含停留）',
+        '每日目標：250-350 km',
+        '上坡用省力齒比，保留心率區間',
+        '順風段全力衝刺，逆風縮小風阻',
+      ]
+    },
+    {
+      title: '⏱ 時間管理',
+      items: [
+        '補給站：最多停留 10 分鐘',
+        '午餐：最多 30 分鐘，選快速便當',
+        '住宿站：嚴守出發時間 03:00',
+        '深夜騎乘：降速到 18-20 km/h 保安全',
+        '不要在非計畫點停超過 5 分鐘',
+        '提前 30 分鐘以上抵達關門點最佳',
+      ]
+    },
+    {
+      title: '🌙 夜間騎行',
+      items: [
+        '前燈至少 600 流明，備用燈必備',
+        '反光衣 + 尾燈確保能見度',
+        '夜間降速 20%，注意路面狀況',
+        '凌晨 2-4 時最嗜睡，可靠在路邊短暫休息 15 分',
+        '備咖啡因補充品（咖啡膠囊/能量棒）',
+        '住宿出發前 03:00 必喝咖啡',
+      ]
+    },
+    {
+      title: '🍱 補給策略',
+      items: [
+        '每小時攝取 60-90g 碳水化合物',
+        '7-ELEVEN 便利商店是主要補給點',
+        '推薦：御飯糰 x2 + 維他命飲料 + 香蕉',
+        '爬坡前多補糖分（運動飲料 + 果凍）',
+        '電解質每 2 小時補充一次',
+        '到達住宿後立即補充蛋白質',
+      ]
+    },
+    {
+      title: '🔧 機械保養',
+      items: [
+        '每 300km 補充鏈條油',
+        '每站檢查輪胎氣壓和花鼓快拆',
+        '備胎 x2 + 補胎工具組必帶',
+        '天雨後立即清潔煞車面',
+        '電子零件注意防水（3M 膠帶）',
+        '手機充電線備份、行動電源必備',
+      ]
+    },
+    {
+      title: '🧠 心理策略',
+      items: [
+        '將路線切割為 5 段（各約 240km）',
+        '每完成一段給自己小獎勵',
+        '遇到困難路段專注「下一個補給站」',
+        '與其他車手結伴輪流破風',
+        '設定手機閃鍋提醒（每 30 分鐘補水）',
+        '保持正向自我對話，拒絕放棄念頭',
+      ]
+    },
+  ];
+
+  document.getElementById('strategyGrid').innerHTML = cards.map(c => `
+    <div class="strategy-card">
+      <h3>${c.title}</h3>
+      <ul>${c.items.map(item => `<li><span class="li-icon">▸</span>${item}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+}
+buildStrategy();
+
+// ========== FOOD ==========
+function buildFood() {
+  const foods = [
+    { name: '福隆便當', region: '新北福隆 (163km)', desc: '台灣最知名的火車便當發源地！竹筍、滷肉、菜脯，超高熱量碳水補充。路過新福隆 7-ELEVEN 附近一定要找找。', tag: '必吃' },
+    { name: '包種茶飲料', region: '坪林 (241km)', desc: '坪林是台灣包種茶故鄉，清香解膩，補充水分最佳選擇。在坪林 7-ELEVEN 可買到當地茶飲。', tag: '特產' },
+    { name: '角板山蜜桃', region: '大溪/角板山 (312km)', desc: '角板山特產甜桃和水蜜桃，爬坡後的最佳補糖選擇。住宿前可在附近市場購買。', tag: '當地特產' },
+    { name: '客家麻糬', region: '苗栗獅潭 (404km)', desc: '苗栗客家文化濃厚，苗栗獅潭全家附近可找到客家傳統糕點，高碳水，適合補能。', tag: '碳水好物' },
+    { name: '鹽水意麵', region: '嘉義 (700km 區間)', desc: '嘉義著名傳統麵食，湯清味鮮，適合長距離騎乘後的腸胃恢復，容易消化。', tag: '好消化' },
+    { name: '高雄鹽埕排骨飯', region: '高雄 (816km 區間)', desc: '高雄傳統小吃，厚實排骨補充蛋白質和卡路里，南台灣必吃，高雄補給站附近尋找。', tag: '蛋白質' },
+    { name: '恆春飛魚料理', region: '屏東恆春 (880km 區間)', desc: '恆春半島特色，新鮮飛魚料理富含 Omega-3，抗疲勞效果佳，在kikiu露營區附近可找。', tag: '消炎好物' },
+    { name: '台東池上便當', region: '台東 (1040km 區間)', desc: '池上便當天下聞名！東部縱谷米飯 Q 彈，配菜豐富，是東海岸補給的終極選擇。', tag: '必吃' },
+    { name: '花蓮薯條伯伯', region: '花蓮終點', desc: '完賽後犒賞自己！花蓮名物大薯條，高卡路里，在花蓮市區隨處可見，完賽最佳慶祝餐點。', tag: '完賽慶祝' },
+  ];
+
+  document.getElementById('foodGrid').innerHTML = foods.map(f => `
+    <div class="food-card">
+      <div class="food-header">${f.name}</div>
+      <div class="food-body">
+        <p style="color:var(--accent);font-size:11px;margin-bottom:6px">📍 ${f.region}</p>
+        <p>${f.desc}</p>
+        <span class="food-tag">${f.tag}</span>
+      </div>
+    </div>
+  `).join('');
+}
+buildFood();
+
+// ========== EMERGENCY ==========
+function buildEmergency() {
+  const plans = [
+    {
+      title: '⏰ 落後超過 2 小時',
+      content: '立即行動：縮短所有補給站停留至 5 分鐘以內，午餐改為騎行中食用（飯糰 + 運動飲料），夜間住宿提早出發（02:30 取代 03:00）。',
+      action: '每段提速 1-2 km/h，補充咖啡因，專注騎行不分心。'
+    },
+    {
+      title: '🌧 遇到颱風或大雨',
+      content: '台灣 6 月偶有鋒面，若風速超過 50km/h 請在安全建築物待機，不強行騎行。關注大會公告是否延賽。',
+      action: '攜帶雨衣（輕薄款），下坡必減速，注意積水路段。'
+    },
+    {
+      title: '🩹 身體狀況異常',
+      content: '膝蓋疼痛：立即降低踩踏頻率，改用更輕齒比，每 30 分鐘休息 1 分鐘。腸胃不適：避免高脂肪食物，改喝白粥或稀飯。',
+      action: '備好止痛藥（普拿疼）、肌肉貼布、維骨力。不要硬撐，必要時 DNF 安全優先。'
+    },
+    {
+      title: '🔧 機械故障',
+      content: '爆胎可在 10 分鐘內解決（備胎 + 快速打氣筒）。鏈條斷裂使用鏈條器修復。嚴重問題可聯繫大會支援車。',
+      action: '備零件：內胎 x2, 補胎片, 鏈條快扣, CO2充氣筒, 多功能工具組。'
+    },
+    {
+      title: '😴 睡意來襲（非住宿點）',
+      content: '深夜騎行遇強烈睡意時，找明亮安全的便利商店或加油站，進行 20 分鐘「NASA 睡眠法」（淺睡），設鬧鐘。',
+      action: '起來後喝咖啡，做 5 分鐘輕度伸展，清醒後繼續。不要在路邊危險地點睡覺。'
+    },
+    {
+      title: '🌡 熱衰竭預防',
+      content: '台灣 6 月氣溫 30-35°C，中午 11:00-14:00 最熱。若頭暈、噁心、停止排汗請立即停車就醫。',
+      action: '頸巾用冷水浸濕降溫，每小時最少喝 500ml，補充鹽錠（電解質）。'
+    },
+  ];
+
+  document.getElementById('emergencySection').innerHTML = `
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px">緊急情況應對手冊 - 保持冷靜，按計畫執行</p>
+    <div class="em-grid">
+      ${plans.map(p => `
+        <div class="em-card">
+          <h3>🚨 ${p.title}</h3>
+          <p>${p.content}</p>
+          <div class="em-highlight">💡 ${p.action}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+buildEmergency();
+
+// ========== TABS ==========
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+</script>
+</body>
+</html>
