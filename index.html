@@ -378,6 +378,7 @@
       display: flex;
       flex-direction: column;
       height: auto;
+      min-height: 0;
     }
 
     /* Map: collapsible, default 200px on mobile */
@@ -412,9 +413,10 @@
     .bottom-section {
       grid-column: unset; grid-row: unset;
       flex: 1;
-      overflow-y: auto;
-      /* Leave room for bottom nav */
-      padding-bottom: 64px;
+      height: auto;
+      min-height: 400px;
+      overflow-y: visible;
+      padding-bottom: 56px;
     }
 
     /* Desktop tabs: hidden on mobile */
@@ -428,7 +430,7 @@
       background: #0d1624;
       border-top: 1px solid var(--border);
       z-index: 2000;
-      height: 60px;
+      height: 56px;
     }
     .mob-tab {
       flex: 1;
@@ -436,17 +438,19 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
+      gap: 2px;
       cursor: pointer;
       color: var(--muted);
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 500;
       border-top: 2px solid transparent;
       transition: all 0.15s;
-      padding: 4px 2px;
+      padding: 6px 2px 4px;
       -webkit-tap-highlight-color: transparent;
+      white-space: nowrap;
+      overflow: hidden;
     }
-    .mob-tab .mob-icon { font-size: 18px; line-height: 1; }
+    .mob-tab .mob-icon { font-size: 20px; line-height: 1; }
     .mob-tab.active { color: var(--accent); border-top-color: var(--accent); background: rgba(0,212,255,0.06); }
 
     /* Table on mobile: card style instead of wide table */
