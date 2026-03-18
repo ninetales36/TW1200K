@@ -740,10 +740,21 @@ function startGPS() {
   }
   document.getElementById('gpsDot').classList.add('active');
   document.getElementById('gpsStatusText').textContent = '定位中...';
+
+  // If already tracking, just re-center to current location
+  if (gpsWatch !== null) {
+    if (userLat !== null) {
+      map.setView([userLat, userLon], 13);
+      document.getElementById('gpsStatusText').textContent = '已定位 ✓（已回到位置）';
+    }
+    return;
+  }
+
   gpsWatch = navigator.geolocation.watchPosition(pos => {
+    const isFirstFix = userLat === null;
     userLat = pos.coords.latitude;
     userLon = pos.coords.longitude;
-    document.getElementById('gpsStatusText').textContent = '已定位 ✓';
+    document.getElementById('gpsStatusText').textContent = '已定位 ✓（再按一次可回到定位點）';
     document.getElementById('gpsCoords').textContent = `${userLat.toFixed(4)}, ${userLon.toFixed(4)}`;
 
     if (!gpsMarker) {
@@ -763,7 +774,11 @@ function startGPS() {
     } else {
       gpsMarker.setLatLng([userLat, userLon]);
     }
-    map.setView([userLat, userLon], 13);
+
+    // Only auto-center on the very first GPS fix
+    if (isFirstFix) {
+      map.setView([userLat, userLon], 13);
+    }
 
     // Find nearest CP and update distance
     const nearestDist = findNearestRouteDist(userLat, userLon);
@@ -778,6 +793,7 @@ function startGPS() {
 
 function stopGPS() {
   if (gpsWatch) navigator.geolocation.clearWatch(gpsWatch);
+  gpsWatch = null;
   document.getElementById('gpsDot').classList.remove('active');
   document.getElementById('gpsStatusText').textContent = '已停止';
 }
