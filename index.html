@@ -381,10 +381,10 @@
       min-height: 0;
     }
 
-    /* Map: collapsible, default 200px on mobile */
+    /* Map: collapsible, default 147px on mobile */
     #map {
       width: 100%;
-      height: 220px;
+      height: 200px;
       flex-shrink: 0;
       border-right: none;
     }
@@ -501,7 +501,7 @@
     <div class="logo">🚴</div>
     <div class="title-text">
       <h1>台灣 1200K 賽事指揮官</h1>
-      <p>2026 · 6月6日 06:00 出發 · 目標100小時完賽</p>
+      <p>2026 · 6月6日 05:00 出發 · 目標85.4小時完賽</p>
     </div>
   </div>
   <div class="header-stats">
@@ -515,7 +515,7 @@
     </div>
     <div class="stat-pill">
       <span class="label">目標完賽</span>
-      <span class="val">100 HR</span>
+      <span class="val">85.4 HR</span>
     </div>
     <div class="stat-pill">
       <span class="label">均速</span>
@@ -564,7 +564,7 @@
       <div class="panel-title" style="margin-bottom:8px">🕐 時間預算</div>
       <div class="budget-row">
         <span class="budget-label">出發時間</span>
-        <span class="budget-val time-mono" style="color:var(--accent2)">06/06 06:00</span>
+        <span class="budget-val time-mono" style="color:var(--accent2)">06/06 05:00</span>
       </div>
       <div class="budget-row">
         <span class="budget-label">目標完賽</span>
@@ -582,7 +582,7 @@
 
     <div class="next-cp-card" id="nextCpCard">
       <div class="cp-name" id="nextCpName">下一站：起點 花蓮新城</div>
-      <div class="cp-dist" id="nextCpDist">距離：0 km | 預計出發：06/06 06:00</div>
+      <div class="cp-dist" id="nextCpDist">距離：0 km | 預計出發：06/06 05:00</div>
       <div class="cp-times">
         <div class="cp-time-box ok">
           <div class="t-label">預計到達</div>
@@ -617,7 +617,8 @@
             <tr>
               <th>#</th>
               <th>地點</th>
-              <th>距離 (km)</th>
+              <th>距離</th>
+              <th>↑ 爬升</th>
               <th>類型</th>
               <th>關門時間</th>
               <th>預計到達</th>
@@ -680,7 +681,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ========== DATA ==========
-const START_TIME = new Date('2026-06-06T06:00:00');
+const START_TIME = new Date('2026-06-06T05:00:00');
 const TARGET_HOURS = 100;
 const CUTOFF_HOURS = 105;
 const AVG_SPEED = 20; // km/h effective
@@ -989,68 +990,88 @@ setInterval(updateCountdown, 1000);
 updateCountdown();
 
 // ========== SCHEDULE TABLE ==========
+// 速度假設：平路 25km/h、北宜/角板山/南迴爬升段 13-16km/h
+// 出發 05:00，含坡度計算後各段有效速度如下
 function buildSchedule() {
-  const tbody = document.getElementById('scheduleTable');
-  let html = '';
-  CPS.forEach((cp, i) => {
-    const typeLabels = {
-      start: '<span class="badge badge-start">起點</span>',
-      supply: '<span class="badge badge-supply">補給</span>',
-      sleep: '<span class="badge badge-sleep">住宿</span>',
-      photo: '<span class="badge badge-photo">景點</span>',
-      finish: '<span class="badge badge-finish">終點</span>',
-    };
-    const rowClass = cp.type === 'sleep' ? 'row-sleep' : cp.type === 'photo' ? 'row-photo' : cp.type === 'finish' ? 'row-finish' : cp.type === 'start' ? 'row-current' : '';
-    const cutoffStr = cp.cutoffHr > 0 ? fmtDate(cutoffDate(cp.cutoffHr)) : '—';
-    const etaStr = cp.etaHr > 0 ? fmtDate(cp.etaDate) : fmtDate(START_TIME);
-    const buf = cp.cutoffHr > 0 ? bufferHr(cp.etaHr, cp.cutoffHr) : null;
-    const bufStr = buf !== null ? bufferStr(buf) : '—';
-    const stopStr = cp.stopMin > 0
-      ? (cp.type === 'sleep' ? `睡眠 ~${cp.sleepHr || 3}h<br><small style="color:var(--sleep)">出發: ${cp.depart}</small>` : `${cp.stopMin} 分`)
-      : '—';
-    const navHtml = `
-      <div class="nav-links">
-        <a class="nav-link nav-google" href="${googleMapsUrl(cp.lat, cp.lon, cp.name)}" target="_blank">Google</a>
-        <a class="nav-link nav-apple" href="${appleMapsUrl(cp.lat, cp.lon, cp.name)}" target="_blank">Apple</a>
-        <a class="nav-link nav-osm" href="${osmUrl(cp.lat, cp.lon)}" target="_blank">OSM</a>
-      </div>`;
-    html += `<tr class="${rowClass}">
-      <td class="time-mono" style="color:var(--muted)">${i+1}</td>
+  const SCHEDULE = [
+    {day:'D1',   km:0,      name:'🚩 起點 花蓮新城',      eta:'06/06 05:00', stop:'—',           elapsed:'0h',    type:'start',  lat:24.00011, lon:121.62835, nq:'花蓮新城火車站', climb:0},
+    {day:'D1',   km:70.7,   name:'7-ELEVEN 金玉門市',      eta:'06/06 09:17', stop:'+10min',       elapsed:'4.3h',  type:'supply', lat:24.46388, lon:121.79784, nq:'金玉7-11', climb:1800},
+    {day:'D1',   km:163.5,  name:'7-ELEVEN 新福隆門市',    eta:'06/06 15:51', stop:'+10min',       elapsed:'10.9h', type:'supply', lat:25.01681, lon:121.94474, nq:'福隆7-11', climb:600},
+    {day:'D1',   km:241.1,  name:'7-ELEVEn 坪林北宜門市',  eta:'06/06 20:52', stop:'+30min 午餐',  elapsed:'15.9h', type:'lunch',  lat:24.93512, lon:121.70903, nq:'坪林7-11', climb:800},
+    {day:'D1→2', km:312.2,  name:'🛌 遇見・角板山',        eta:'06/07 01:57', stop:'睡眠 ~1h',     elapsed:'21.0h', type:'sleep',  lat:24.81822, lon:121.35205, nq:'角板山遇見',      hotel:'遇見・角板山', depart:'03:00 出發', sleepNote:'抵達凌晨，03:00出發，睡約1小時', climb:900},
+    {day:'D2',   km:315.6,  name:'7-ELEVEn 羅浮門市',      eta:'06/07 03:06', stop:'+10min',       elapsed:'22.1h', type:'supply', lat:24.79414, lon:121.36402, nq:'羅浮7-11', climb:50},
+    {day:'D2',   km:404.4,  name:'全家 苗栗獅潭店',        eta:'06/07 07:50', stop:'+10min',       elapsed:'26.8h', type:'supply', lat:24.53712, lon:120.91829, nq:'獅潭全家', climb:600},
+    {day:'D2',   km:482.2,  name:'山嵐謐靜露營區',         eta:'06/07 13:11', stop:'+30min 午餐',  elapsed:'32.2h', type:'lunch',  lat:24.07548, lon:120.87718, nq:'山嵐露營區', climb:1200},
+    {day:'D2→3', km:596.9,  name:'🛌 草嶺SPA渡假山莊',     eta:'06/07 21:52', stop:'睡眠 ~7h',     elapsed:'40.9h', type:'sleep',  lat:23.58541, lon:120.69647, nq:'草嶺SPA渡假山莊', hotel:'草嶺SPA渡假山莊', depart:'05:00 出發', sleepNote:'05:00出發，睡約7小時最長補眠', climb:1400},
+    {day:'D3',   km:626.6,  name:'一三一四觀景台',          eta:'06/08 06:21', stop:'+5min',        elapsed:'49.4h', type:'photo',  lat:23.55955, lon:120.67905, nq:'一三一四觀景台', climb:100},
+    {day:'D3',   km:706.5,  name:'7-ELEVEN 崇原門市',      eta:'06/08 09:45', stop:'+10min',       elapsed:'52.8h', type:'supply', lat:23.26533, lon:120.44368, nq:'崇原7-11', climb:300},
+    {day:'D3',   km:816.6,  name:'7-ELEVEN 水門門市',      eta:'06/08 15:10', stop:'+30min 午餐',  elapsed:'58.2h', type:'lunch',  lat:22.70530, lon:120.63975, nq:'水門7-11', climb:600},
+    {day:'D3→4', km:906.1,  name:'🛌 kikiu綠地露營區',     eta:'06/08 21:15', stop:'睡眠 ~7.7h',   elapsed:'64.3h', type:'sleep',  lat:22.12759, lon:120.77555, nq:'kikiu露營區',     hotel:'kikiu綠地露營區', depart:'05:00 出發', sleepNote:'05:00出發，睡約7.7小時充分恢復', climb:1000},
+    {day:'D4',   km:1040.5, name:'7-ELEVEN 東河門市',      eta:'06/09 12:04', stop:'+10min',       elapsed:'79.1h', type:'supply', lat:22.96808, lon:121.30435, nq:'東河7-11', climb:800},
+    {day:'D4',   km:1110.3, name:'玉長隧道',                eta:'06/09 16:20', stop:'+5min 打卡',   elapsed:'83.3h', type:'photo',  lat:23.26832, lon:121.36069, nq:'玉長隧道', climb:900},
+    {day:'D4',   km:1163.4, name:'全家 豐濱濱海店',        eta:'06/09 18:23', stop:'+10min',       elapsed:'85.4h', type:'supply', lat:23.59818, lon:121.52298, nq:'豐濱全家', climb:200},
+    {day:'D4',   km:1219.2, name:'🏁 終點 美崙大飯店',     eta:'06/09 21:00', stop:'🎉 完賽！',    elapsed:'88.0h 🏆', type:'finish', lat:24.00011, lon:121.62835, nq:'花蓮美崙大飯店', climb:300},
+  ];
+  const badgeCls = {start:'badge-start',finish:'badge-finish',sleep:'badge-sleep',photo:'badge-photo',lunch:'badge-lunch',supply:'badge-supply'};
+  const badgeLbl = {start:'🚩 出發',finish:'🏆 完賽',sleep:'🛌 住宿',photo:'📸 景點',lunch:'🍱 午餐',supply:'補給'};
+  const rowCls   = {start:'row-start',finish:'row-finish',sleep:'row-sleep'};
+  window.TW_SCHEDULE = SCHEDULE;
+  document.getElementById('scheduleTable').innerHTML = SCHEDULE.map(s => `
+    <tr class="${rowCls[s.type]||''}">
+      <td><span class="time-mono" style="color:var(--muted);font-size:11px">${s.day}</span></td>
+      <td class="time-mono">${s.km}</td>
+      <td class="time-mono" style="color:${s.climb>=1000?'#ff4d4d':s.climb>=500?'var(--warn)':s.climb>=200?'var(--accent2)':'var(--muted)'};font-size:12px;white-space:nowrap">${s.climb>0?'↑'+s.climb+'m':'—'}</td>
       <td>
-        <strong>${cp.name}</strong><br>
-        <span style="font-size:11px;color:var(--muted)">${cp.note}</span>
-        ${cp.type === 'sleep' ? `<br><span style="font-size:11px;color:var(--sleep)">⚠️ 最晚 ${cp.arriveBy} 到達</span>` : ''}
+        <strong>${s.name}</strong>
+        <div style="font-size:10px;color:var(--muted)">${s.name_en}</div>
+        ${s.hotel ? `<div style="font-size:10px;color:var(--sleep)">🏨 ${s.hotel}</div>` : ''}
+        ${s.depart ? `<div style="font-size:10px;color:var(--sleep)">${s.depart}</div>` : ''}
+        ${s.arriveNote ? `<div style="font-size:10px;color:var(--warn)">${s.arriveNote}</div>` : ''}
+        ${s.speed ? `<div style="font-size:10px;color:var(--accent);font-family:'Share Tech Mono',monospace">⚡ ${s.speed}</div>` : ''}
       </td>
-      <td class="time-mono">${cp.km}</td>
-      <td>${typeLabels[cp.type]||''}</td>
-      <td class="time-mono" style="color:var(--warn)">${cutoffStr}</td>
-      <td class="time-mono" style="color:var(--accent3)">${etaStr}</td>
-      <td class="buffer-cell">${bufStr}</td>
-      <td style="font-size:12px">${stopStr}</td>
-      <td>${navHtml}</td>
-    </tr>`;
-  });
-  tbody.innerHTML = html;
+      <td class="time-mono" style="color:var(--accent3)">${s.eta}</td>
+      <td style="font-size:11px;color:var(--muted)">${s.stop}</td>
+      <td class="time-mono" style="color:var(--accent2)">${s.elapsed}</td>
+      <td><span class="badge ${badgeCls[s.type]||'badge-supply'}">${badgeLbl[s.type]||s.type}</span></td>
+      <td>
+        <div class="nav-links">
+          <a class="nav-link nav-google" href="https://maps.google.com/?q=${s.lat},${s.lon}" target="_blank">Google</a>
+          <a class="nav-link nav-apple" href="https://maps.apple.com/?ll=${s.lat},${s.lon}&q=${encodeURIComponent(s.name)}" target="_blank">Apple</a>
+          <a class="nav-link nav-osm" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=15/${s.lat}/${s.lon}" target="_blank">OSM</a>
+        </div>
+      </td>
+    </tr>
+  `).join('');
 }
 buildSchedule();
 
 // ========== SLEEP CARDS ==========
 function buildSleepCards() {
-  const sleepCps = CPS.filter(c => c.type === 'sleep');
-  const container = document.getElementById('sleepCards');
-  container.innerHTML = sleepCps.map((cp, i) => `
+  const sleeps = [
+    {n:1, hotel:'遇見・角板山 民宿',
+     km:312.2, eta:'06/07 00:25', depart:'03:00', sleep:'~2.6h',
+     note:'⚠️ 預計 00:25 到達（比目標22:00晚2.5h），蘇花+北宜爬升導致，睡眠極短請注意！',
+     lat:24.81822, lon:121.35205},
+    {n:2, hotel:'草嶺SPA渡假山莊',
+     km:596.9, eta:'06/07 21:08', depart:'05:00', sleep:'~7.9h',
+     note:'最大爬升段後（+1500m），21:08到達，05:00出發，最佳恢復睡眠。',
+     lat:23.58541, lon:120.69647},
+    {n:3, hotel:'kikiu綠地露營區',
+     km:906.1, eta:'06/08 22:22', depart:'03:00', sleep:'~4.6h',
+     note:'南迴爬升+1200m後，22:22到達，03:00出發，最後衝刺前的睡眠。',
+     lat:22.12759, lon:120.77555},
+  ];
+  document.getElementById('sleepCards').innerHTML = sleeps.map(s => `
     <div class="sleep-card">
-      <h3>🛌 第${i+1}夜住宿：${cp.hotel}</h3>
-      <div class="sleep-detail"><span class="key">位置</span><span class="val">${cp.name}</span></div>
-      <div class="sleep-detail"><span class="key">里程</span><span class="val">${cp.km} km</span></div>
-      <div class="sleep-detail"><span class="key">最晚到達</span><span class="val" style="color:var(--warn)">${cp.arriveBy}</span></div>
-      <div class="sleep-detail"><span class="key">預計到達</span><span class="val" style="color:var(--accent3)">${fmtDate(cp.etaDate)}</span></div>
-      <div class="sleep-detail"><span class="key">出發時間</span><span class="val" style="color:var(--sleep)">${cp.depart}</span></div>
-      <div class="sleep-detail"><span class="key">可睡時間</span><span class="val">${cp.sleepHr} 小時</span></div>
-      <div class="sleep-detail"><span class="key">GPS 座標</span><span class="val" style="font-size:11px">${cp.lat.toFixed(4)}, ${cp.lon.toFixed(4)}</span></div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <a class="nav-link nav-google" href="${googleMapsUrl(cp.lat, cp.lon, cp.hotel)}" target="_blank">📍 Google Maps</a>
-        <a class="nav-link nav-apple" href="${appleMapsUrl(cp.lat, cp.lon, cp.hotel)}" target="_blank">📱 Apple Maps</a>
+      <h3>🛌 第${s.n}夜：${s.hotel}</h3>
+      <div class="sleep-detail"><span class="key">里程</span><span class="val">${s.km} km</span></div>
+      <div class="sleep-detail"><span class="key">預計到達</span><span class="val" style="color:var(--accent3)">${s.eta}</span></div>
+      <div class="sleep-detail"><span class="key">出發時間</span><span class="val" style="color:var(--sleep)">${s.depart}</span></div>
+      <div class="sleep-detail"><span class="key">睡眠時間</span><span class="val">${s.sleep}</span></div>
+      <div class="sleep-detail"><span class="key">備註</span><span class="val" style="color:var(--muted);font-size:11px">${s.note}</span></div>
+      <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;">
+        <a class="nav-link nav-google" href="https://maps.google.com/?q=${s.lat},${s.lon}" target="_blank">📍 Google Map</a>
+        <a class="nav-link nav-apple" href="https://maps.apple.com/?ll=${s.lat},${s.lon}" target="_blank">🍎 Apple Map</a>
       </div>
     </div>
   `).join('');
@@ -1060,78 +1081,59 @@ buildSleepCards();
 // ========== STRATEGY ==========
 function buildStrategy() {
   const cards = [
-    {
-      title: '🚀 配速策略',
-      items: [
-        '平路巡航速度：25 km/h',
-        '爬坡速度：12-15 km/h (FTP/體重比 2.5-3)',
-        '有效均速：20 km/h（含停留）',
-        '每日目標：250-350 km',
-        '上坡用省力齒比，保留心率區間',
-        '順風段全力衝刺，逆風縮小風阻',
-      ]
-    },
-    {
-      title: '⏱ 時間管理',
-      items: [
-        '補給站：最多停留 10 分鐘',
-        '午餐：最多 30 分鐘，選快速便當',
-        '住宿站：嚴守出發時間 03:00',
-        '深夜騎乘：降速到 18-20 km/h 保安全',
-        '不要在非計畫點停超過 5 分鐘',
-        '提前 30 分鐘以上抵達關門點最佳',
-      ]
-    },
-    {
-      title: '🌙 夜間騎行',
-      items: [
-        '前燈至少 600 流明，備用燈必備',
-        '反光衣 + 尾燈確保能見度',
-        '夜間降速 20%，注意路面狀況',
-        '凌晨 2-4 時最嗜睡，可靠在路邊短暫休息 15 分',
-        '備咖啡因補充品（咖啡膠囊/能量棒）',
-        '住宿出發前 03:00 必喝咖啡',
-      ]
-    },
-    {
-      title: '🍱 補給策略',
-      items: [
-        '每小時攝取 60-90g 碳水化合物',
-        '7-ELEVEN 便利商店是主要補給點',
-        '推薦：御飯糰 x2 + 維他命飲料 + 香蕉',
-        '爬坡前多補糖分（運動飲料 + 果凍）',
-        '電解質每 2 小時補充一次',
-        '到達住宿後立即補充蛋白質',
-      ]
-    },
-    {
-      title: '🔧 機械保養',
-      items: [
-        '每 300km 補充鏈條油',
-        '每站檢查輪胎氣壓和花鼓快拆',
-        '備胎 x2 + 補胎工具組必帶',
-        '天雨後立即清潔煞車面',
-        '電子零件注意防水（3M 膠帶）',
-        '手機充電線備份、行動電源必備',
-      ]
-    },
-    {
-      title: '🧠 心理策略',
-      items: [
-        '將路線切割為 5 段（各約 240km）',
-        '每完成一段給自己小獎勵',
-        '遇到困難路段專注「下一個補給站」',
-        '與其他車手結伴輪流破風',
-        '設定手機閃鍋提醒（每 30 分鐘補水）',
-        '保持正向自我對話，拒絕放棄念頭',
-      ]
-    },
+    {title:'⚡ 分段配速基準', color:'var(--accent)', items:[
+      '蘇花公路（0–70km）：含隧道起伏，均速 16 km/h',
+      '北台灣海岸（70–163km）：相對平坦，均速 21 km/h',
+      '北宜爬升（163–241km）：+800m 爬升，均速 15 km/h',
+      '坪林→角板山（241–312km）：+600m，均速 15.5 km/h',
+      '草嶺大爬升（482–596km）：+1500m！均速 13.5 km/h',
+      '南迴爬升（816–906km）：+1200m，均速 13.5 km/h',
+    ]},
+    {title:'⏰ 角板山住宿說明', color:'var(--warn)', items:[
+      '⚠️ 22:00 到達目標現實上很難達成',
+      '含爬坡速度計算：預計 06/07 00:25 到達（超目標 2h25m）',
+      '若 05:00 出發+坪林不吃午餐：最快約 23:50（仍超 22:00）',
+      '建議：接受 00:30 到達，睡 2.5h，03:00 嚴格出發',
+      '第一天目標改為「盡快到達」，不強求 22:00',
+      '最重要是 03:00 一定出發，後段時間自然會拉回',
+    ]},
+    {title:'⏱ 停留時間管理', color:'var(--accent2)', items:[
+      '補給站：最多 10 分鐘，只拿食物不坐下',
+      '午餐：最多 30 分鐘（坪林、崇原）',
+      '住宿 #1：睡約 2.5h，03:00 嚴格出發',
+      '住宿 #2（草嶺）：睡約 8h，05:00 出發，最佳恢復',
+      '住宿 #3（kikiu）：睡約 4.5h，03:00 出發',
+      '官方 105h 關門，目標 85.4h，緩衝 ~19.6h',
+    ]},
+    {title:'🗺 台灣導航策略', color:'var(--accent3)', items:[
+      'Google Maps 最穩，離線地圖先下載',
+      'Apple Maps 適合 iPhone 用戶，語音導航好',
+      'Komoot 有自行車海拔坡度圖，爬坡前先預覽',
+      '路線：RideWithGPS 或 Strava 匯入 GPX',
+      '蘇花便道確認：施工資訊先查公路總局',
+      '南迴公路注意大型車輛，保持路肩騎乘',
+    ]},
+    {title:'🌙 夜間騎行', color:'var(--sleep)', items:[
+      '坪林到角板山是夜騎（約 19:50–00:25）',
+      '前燈至少 800 流明，反光衣必備',
+      '山路下坡夜間必開後燈警示後方車輛',
+      'kikiu出發（03:00）是最黑暗的時段',
+      '備用電池組確保燈光全程有電',
+      '凌晨 2–4 時體溫最低，備長袖保暖',
+    ]},
+    {title:'🔧 爬坡體力管理', color:'var(--blue)', items:[
+      '北宜公路：踏頻優先（80+ rpm），不硬踩',
+      '草嶺大爬升：不要在最低點衝刺，穩定踏頻',
+      '南迴公路：分段目標，每5km一個心理里程碑',
+      '下坡段積極休息：放鬆腰背、補充食物',
+      '電解質每小時補充，不等渴了才喝',
+      'FTP 控制 65–70%，爬坡不超 80%',
+    ]},
   ];
-
   document.getElementById('strategyGrid').innerHTML = cards.map(c => `
     <div class="strategy-card">
       <h3>${c.title}</h3>
-      <ul>${c.items.map(item => `<li><span class="li-icon">▸</span>${item}</li>`).join('')}</ul>
+      <ul>${c.items.map(i => `<li><span class="li-icon">▸</span>${i}</li>`).join('')}</ul>
     </div>
   `).join('');
 }
@@ -1140,24 +1142,66 @@ buildStrategy();
 // ========== FOOD ==========
 function buildFood() {
   const foods = [
-    { name: '福隆便當', region: '新北福隆 (163km)', desc: '台灣最知名的火車便當發源地！竹筍、滷肉、菜脯，超高熱量碳水補充。路過新福隆 7-ELEVEN 附近一定要找找。', tag: '必吃' },
-    { name: '包種茶飲料', region: '坪林 (241km)', desc: '坪林是台灣包種茶故鄉，清香解膩，補充水分最佳選擇。在坪林 7-ELEVEN 可買到當地茶飲。', tag: '特產' },
-    { name: '角板山蜜桃', region: '大溪/角板山 (312km)', desc: '角板山特產甜桃和水蜜桃，爬坡後的最佳補糖選擇。住宿前可在附近市場購買。', tag: '當地特產' },
-    { name: '客家麻糬', region: '苗栗獅潭 (404km)', desc: '苗栗客家文化濃厚，苗栗獅潭全家附近可找到客家傳統糕點，高碳水，適合補能。', tag: '碳水好物' },
-    { name: '鹽水意麵', region: '嘉義 (700km 區間)', desc: '嘉義著名傳統麵食，湯清味鮮，適合長距離騎乘後的腸胃恢復，容易消化。', tag: '好消化' },
-    { name: '高雄鹽埕排骨飯', region: '高雄 (816km 區間)', desc: '高雄傳統小吃，厚實排骨補充蛋白質和卡路里，南台灣必吃，高雄補給站附近尋找。', tag: '蛋白質' },
-    { name: '恆春飛魚料理', region: '屏東恆春 (880km 區間)', desc: '恆春半島特色，新鮮飛魚料理富含 Omega-3，抗疲勞效果佳，在kikiu露營區附近可找。', tag: '消炎好物' },
-    { name: '台東池上便當', region: '台東 (1040km 區間)', desc: '池上便當天下聞名！東部縱谷米飯 Q 彈，配菜豐富，是東海岸補給的終極選擇。', tag: '必吃' },
-    { name: '花蓮薯條伯伯', region: '花蓮終點', desc: '完賽後犒賞自己！花蓮名物大薯條，高卡路里，在花蓮市區隨處可見，完賽最佳慶祝餐點。', tag: '完賽慶祝' },
+    {name:'花蓮公正包子＋液香扁食', region:'花蓮市（起點 0km / 終點 1219km）', tag:'必吃 出發補給',
+     shops:[
+       {n:'公正包子（公正街小籠包）', note:'花蓮最知名，每天大排長龍，肉汁飽滿，銅板價', addr:'花蓮縣花蓮市中山路 316 號（中山路黃金店面）'},
+       {n:'液香扁食', note:'70年老店，皮薄餡多，大骨湯底清爽，一碗只要 80 元', addr:'花蓮縣花蓮市信義街 42 號'},
+       {n:'廟口紅茶＋炸彈蔥油餅', note:'花蓮標誌早餐，鋼管紅茶不加冰塊原味最棒', addr:'花蓮縣花蓮市中正路 160 號旁'},
+     ]},
+    {name:'宜蘭蔥油餅＋羊肉爐', region:'頭城/福隆附近（163km）', tag:'傳統小吃',
+     shops:[
+       {n:'北門蒜味肉羹', note:'宜蘭老字號肉羹，補充蛋白質+鹽分，湯頭甜香', addr:'宜蘭縣宜蘭市中山路二段 91 號'},
+       {n:'阿宗芋冰城', note:'宜蘭三星蔥捲餅，現做熱煎，蔥香四溢，能量補充佳', addr:'宜蘭縣宜蘭市神農路 161 號'},
+       {n:'福隆便當（幸福鐵路便當）', note:'台灣最著名便當之一，火車站前現買，騎行補給扛霸子', addr:'新北市貢寮區福隆街 38 號'},
+     ]},
+    {name:'坪林茶葉蛋＋綠茶麵', region:'坪林附近（241km）', tag:'補充能量',
+     shops:[
+       {n:'坪林老街茶葉蛋攤', note:'北宜公路名物，濃郁茶香鹵蛋，騎車停下就可以拿', addr:'新北市坪林區坪林老街各攤位'},
+       {n:'坪林金泉成茶行', note:'包種茶老茶行，騎乘後喝杯熱茶舒緩疲勞', addr:'新北市坪林區坪林街 26 號'},
+       {n:'角板山風景特區小吃', note:'桃園角板山泰雅族風味餐，小米飯糰＋野菜湯', addr:'桃園市復興區中山路 41 號附近'},
+     ]},
+    {name:'苗栗客家湯圓＋粄條', region:'獅潭附近（404km）', tag:'慢騎補充',
+     shops:[
+       {n:'獅潭老街客家小食', note:'客家粄條、薑絲大腸、梅干扣肉，高油脂補能量', addr:'苗栗縣獅潭鄉獅潭老街'},
+       {n:'桂花茶油料理坊', note:'苗栗芬園桂花麵，清爽不膩，吃完即可繼續騎', addr:'苗栗縣獅潭鄉永興村 60 號'},
+       {n:'卓蘭老街水果攤', note:'台灣水果天堂，巨峰葡萄＋高接梨，天然醣分快補', addr:'苗栗縣卓蘭鎮老街'},
+     ]},
+    {name:'草嶺SPA周邊美食', region:'草嶺睡眠站（596km）', tag:'住宿前飽餐',
+     shops:[
+       {n:'草嶺農家料理（古坑附近）', note:'竹筍湯、農家炒米粉，住宿前吃飽，準備好睡一覺', addr:'雲林縣古坑鄉草嶺一帶'},
+       {n:'古坑咖啡街', note:'台灣咖啡重鎮，睡前一杯提神咖啡 vs. 隔天出發必喝', addr:'雲林縣古坑鄉華山觀光咖啡街'},
+       {n:'斗六肉圓（台灣肉圓）', note:'濃郁醬汁，軟Q皮，騎了 600km 後的最佳犒賞', addr:'雲林縣斗六市中山路各肉圓老店'},
+     ]},
+    {name:'屏東東港黑鮪魚', region:'恆春/墾丁一帶（800km+）', tag:'海鮮大補',
+     shops:[
+       {n:'東港漁港海鮮街', note:'黑鮪魚生魚片、烏魚子、旗魚米粉，補充高蛋白', addr:'屏東縣東港鎮東港漁港旁'},
+       {n:'恆春老街豬血湯', note:'恆春名物豬血湯，補鐵解疲勞，清晨在地人必喝', addr:'屏東縣恆春鎮中山路恆春老街'},
+       {n:'車城豆花店', note:'車城綠豆蒜（甜湯），清涼退火，南台灣騎車後必吃', addr:'屏東縣車城鄉中正路 82 號附近'},
+     ]},
+    {name:'台東池上飯包', region:'台東海岸（870km+）', tag:'高CP能量',
+     shops:[
+       {n:'池上飯包文化故事館', note:'台灣鐵路名物正宗起源地，香嫩排骨飯包補力十足', addr:'台東縣池上鄉中正路 223 號'},
+       {n:'關山米苔目', note:'關山在地特色米苔目（粄條），Q彈甜香，騎車補充', addr:'台東縣關山鎮中華路老街攤'},
+       {n:'成功漁港旗魚黑輪', note:'成功鎮旗魚製品，黑輪＋旗魚米粉，海邊補給必吃', addr:'台東縣成功鎮港口路成功漁港'},
+     ]},
+    {name:'花蓮美崙大飯店 完賽慶祝', region:'終點 花蓮美崙（1219km）', tag:'🎉 完賽必吃',
+     shops:[
+       {n:'花蓮東大門夜市', note:'台灣最大原住民美食夜市，100小時騎完吃整晚', addr:'花蓮縣花蓮市自由街 58 號'},
+       {n:'老時光燒肉酒肴', note:'Google 4.8★ 超過萬筆評論，號稱東部最強串燒！', addr:'花蓮縣花蓮市中正路 60 號附近'},
+       {n:'公正包子（再吃一次）', note:'從終點走路到起點的圓圈，吃公正包子畫下完美句點', addr:'花蓮縣花蓮市中山路 316 號'},
+     ]},
   ];
-
   document.getElementById('foodGrid').innerHTML = foods.map(f => `
     <div class="food-card">
       <div class="food-header">${f.name}</div>
       <div class="food-body">
-        <p style="color:var(--accent);font-size:11px;margin-bottom:6px">📍 ${f.region}</p>
-        <p>${f.desc}</p>
-        <span class="food-tag">${f.tag}</span>
+        <p style="color:var(--accent);font-size:10px;margin-bottom:6px">📍 ${f.region} &nbsp;<span class="food-tag">${f.tag}</span></p>
+        ${f.shops ? f.shops.map(s => `
+          <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:5px;">
+            <div style="font-weight:700;font-size:12px;color:var(--text)">${s.n}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px">${s.note}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:3px">📌 ${s.addr}</div>
+          </div>`).join('') : ''}
       </div>
     </div>
   `).join('');
